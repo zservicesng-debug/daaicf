@@ -14,12 +14,14 @@ import {
   createPortalUser,
   createProject,
   createPost,
+  createTeamMember,
   deleteHelpApplication,
   deletePartnerApplication,
   deleteChatRoom,
   deleteComment,
   deletePost,
   deleteSponsorApplication,
+  deleteTeamMember,
   ensurePartnerPermissions,
   ensureSponsorAccess,
   findUserByEmail,
@@ -43,6 +45,7 @@ import {
   updateProject,
   updateSettings,
   updateSponsorApplication,
+  updateTeamMember,
   updateUserProfile,
 } from "@/lib/store";
 import { type GalleryMediaType, type PortalRole } from "@/types";
@@ -118,6 +121,14 @@ const imageLinkSchema = z
     (value) => /^https?:\/\//i.test(value),
     "Use an image link that starts with http:// or https://."
   );
+
+const teamMemberSchema = z.object({
+  id: z.string().optional(),
+  name: z.string().trim().min(3).max(120),
+  role: z.string().trim().min(2).max(120),
+  description: z.string().trim().min(20).max(600),
+  sortOrder: z.coerce.number().int().min(0).max(9999),
+});
 
 function getActionErrorMessage(error: unknown, fallback: string) {
   return error instanceof Error ? error.message : fallback;
@@ -675,6 +686,134 @@ export async function saveSettingsAction(formData: FormData) {
     type: "success",
     title: "Settings saved",
     description: "Foundation settings have been updated.",
+  });
+}
+
+export async function saveTeamMemberAction(formData: FormData) {
+  await requireRole("admin");
+  const id = String(formData.get("id") || "");
+  const teamEditorPath = id ? `/admin/team/${id}/edit` : "/admin/team/new";
+
+  const parsed = teamMemberSchema.safeParse({
+    id: id || undefined,
+    name: formData.get("name"),
+    role: formData.get("role"),
+    description: formData.get("description"),
+    sortOrder: formData.get("sortOrder"),
+  });
+  const data = parsed.success ? parsed.data : null;
+
+  if (!data) {
+    return flashAndRedirect(teamEditorPath, {
+      type: "error",
+      title: "Team member not saved",
+      description: "Please complete the member details before saving.",
+    });
+  }
+
+  const imageFile = getFileInput(formData, "imageFile");
+  let imageLink: string | undefined;
+
+  if (!imageFile) {
+    const rawImageLink = String(formData.get("imageUrl") || "").trim();
+    if (rawImageLink) {
+      const parsedImageLink = imageLinkSchema.safeParse(rawImageLink);
+      if (!parsedImageLink.success) {
+        return flashAndRedirect(teamEditorPath, {
+          type: "error",
+          title: "Team member not saved",
+          description:
+            parsedImageLink.error.issues[0]?.message ||
+            "Enter a valid image link before saving this team member.",
+        });
+      }
+
+      imageLink = parsedImageLink.data;
+    }
+  }
+
+  try {
+    const savedMember = data.id
+      ? await updateTeamMember(data.id, {
+          name: data.name,
+          role: data.role,
+          description: data.description,
+          isFeatured: formData.get("isFeatured") === "on",
+          sortOrder: data.sortOrder,
+          imageFile,
+          imageLink,
+          clearImage: formData.get("clearImage") === "on",
+        })
+      : await createTeamMember({
+          name: data.name,
+          role: data.role,
+          description: data.description,
+          isFeatured: formData.get("isFeatured") === "on",
+          sortOrder: data.sortOrder,
+          imageFile,
+          imageLink,
+        });
+
+    if (!savedMember) {
+      throw new Error("We could not find that team member anymore.");
+    }
+  } catch (error) {
+    await flashAndRedirect(teamEditorPath, {
+      type: "error",
+      title: "Team member not saved",
+      description: getActionErrorMessage(
+        error,
+        "We could not save that team member right now."
+      ),
+    });
+  }
+
+  revalidatePath("/admin/team");
+  if (data.id) {
+    revalidatePath(`/admin/team/${data.id}/edit`);
+  }
+  revalidatePath("/about");
+  revalidatePath("/about/team");
+  await flashAndRedirect("/admin/team", {
+    type: "success",
+    title: data.id ? "Team member updated" : "Team member created",
+    description: `${data.name} has been saved successfully.`,
+  });
+}
+
+export async function deleteTeamMemberAction(id: string, _formData: FormData) {
+  await requireRole("admin");
+  void _formData;
+
+  if (!id) {
+    await flashAndRedirect("/admin/team", {
+      type: "error",
+      title: "Team member not deleted",
+      description: "We could not identify the team member you wanted to remove.",
+    });
+  }
+
+  try {
+    await deleteTeamMember(id);
+  } catch (error) {
+    await flashAndRedirect("/admin/team", {
+      type: "error",
+      title: "Team member not deleted",
+      description: getActionErrorMessage(
+        error,
+        "We could not remove that team member right now."
+      ),
+    });
+  }
+
+  revalidatePath("/admin/team");
+  revalidatePath(`/admin/team/${id}/edit`);
+  revalidatePath("/about");
+  revalidatePath("/about/team");
+  await flashAndRedirect("/admin/team", {
+    type: "success",
+    title: "Team member deleted",
+    description: "The member has been removed from the public team page.",
   });
 }
 

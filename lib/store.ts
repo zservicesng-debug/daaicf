@@ -8,6 +8,7 @@ import {
   createPlaceholderImage,
   excerpt,
   guessGalleryMediaTypeFromUrl,
+  initialsFromName,
   slugify,
 } from "@/lib/utils";
 import {
@@ -32,6 +33,7 @@ import {
   type SiteStore,
   type SponsorApplication,
   type SponsorProjectAccess,
+  type TeamMember,
 } from "@/types";
 
 type PostRow = {
@@ -211,6 +213,18 @@ type ChatMessageRow = {
   room_id: string;
   sender_id: string;
   message: string;
+  created_at: string;
+};
+
+type TeamMemberRow = {
+  id: string;
+  name: string;
+  role: string;
+  description: string;
+  image_url: string | null;
+  image_path: string | null;
+  is_featured: boolean;
+  sort_order: number;
   created_at: string;
 };
 
@@ -505,6 +519,31 @@ function mapChatMessage(row: ChatMessageRow): ChatMessage {
   };
 }
 
+function mapTeamMember(row: TeamMemberRow): TeamMember {
+  return {
+    id: row.id,
+    initials: initialsFromName(row.name),
+    name: row.name,
+    role: row.role,
+    description: row.description,
+    imageUrl: row.image_url,
+    imagePath: row.image_path,
+    isFeatured: row.is_featured,
+    sortOrder: row.sort_order,
+    createdAt: row.created_at,
+  };
+}
+
+function sortTeamMembers(members: TeamMember[]) {
+  return [...members].sort((left, right) => {
+    if (left.sortOrder !== right.sortOrder) {
+      return left.sortOrder - right.sortOrder;
+    }
+
+    return left.createdAt.localeCompare(right.createdAt);
+  });
+}
+
 function makePostPlaceholder(title: string, category: Post["category"]) {
   return createPlaceholderImage({
     title,
@@ -661,6 +700,65 @@ async function resolvePostImage(options: {
     coverImageUrl: makePostPlaceholder(options.title, options.category),
     coverImagePath: null,
     oldPathToDelete: options.existingPath,
+  };
+}
+
+async function resolveTeamMemberImage(options: {
+  name: string;
+  imageFile?: File | null;
+  imageLink?: string;
+  existingUrl?: string | null;
+  existingPath?: string | null;
+  clearExisting?: boolean;
+}) {
+  const nextFile = options.imageFile;
+  const nextLink = options.imageLink?.trim();
+  const clearExisting = options.clearExisting === true;
+
+  if (nextFile && usingSupabase()) {
+    const uploaded = await uploadStorageFile("team", options.name, nextFile);
+    if (uploaded) {
+      return {
+        imageUrl: uploaded.publicUrl,
+        imagePath: uploaded.path,
+        oldPathToDelete: options.existingPath,
+      };
+    }
+  }
+
+  if (nextFile) {
+    return {
+      imageUrl: createPlaceholderImage({
+        title: options.name,
+        subtitle: "Team member portrait",
+        accent: "#1A5C2A",
+        background: "#48667D",
+      }),
+      imagePath: null,
+      oldPathToDelete: options.existingPath,
+    };
+  }
+
+  if (nextLink) {
+    return {
+      imageUrl: nextLink,
+      imagePath: null,
+      oldPathToDelete: options.existingPath,
+    };
+  }
+
+  if (clearExisting) {
+    return {
+      imageUrl: null,
+      imagePath: null,
+      oldPathToDelete: options.existingPath,
+    };
+  }
+
+  return {
+    imageUrl: options.existingUrl || null,
+    imagePath: options.existingPath || null,
+    oldPathToDelete: null,
   };
 }
 
@@ -884,6 +982,22 @@ async function fetchAllUsers() {
   return (data as UserProfileRow[]).map(mapUser);
 }
 
+async function fetchTeamMembers() {
+  const client = getAdminClient();
+  if (!client) {
+    return defaultStore.teamMembers;
+  }
+
+  const { data } = await client
+    .from("team_members")
+    .select("*")
+    .order("sort_order", { ascending: true })
+    .order("created_at", { ascending: true })
+    .throwOnError();
+
+  return sortTeamMembers((data as TeamMemberRow[]).map(mapTeamMember));
+}
+
 export async function getStore(): Promise<SiteStore> {
   noStore();
 
@@ -908,6 +1022,7 @@ export async function getStore(): Promise<SiteStore> {
     partnerApplicationsResult,
     projectsResult,
     users,
+    teamMembers,
     sponsorAccessResult,
     partnerPermissionsResult,
     chatRoomsResult,
@@ -944,6 +1059,7 @@ export async function getStore(): Promise<SiteStore> {
       .throwOnError(),
     client.from("projects").select("*").order("created_at", { ascending: false }).throwOnError(),
     fetchAllUsers(),
+    fetchTeamMembers(),
     client
       .from("sponsor_project_access")
       .select("*")
@@ -986,6 +1102,7 @@ export async function getStore(): Promise<SiteStore> {
     ).map(mapPartnerApplication),
     projects: (projectsResult.data as ProjectRow[]).map(mapProject),
     users,
+    teamMembers,
     sponsorAccess: (sponsorAccessResult.data as SponsorAccessRow[]).map(
       mapSponsorAccess
     ),
@@ -995,7 +1112,6 @@ export async function getStore(): Promise<SiteStore> {
     chatRooms: (chatRoomsResult.data as ChatRoomRow[]).map(mapChatRoom),
     chatMembers: (chatMembersResult.data as ChatMemberRow[]).map(mapChatMember),
     chatMessages: (chatMessagesResult.data as ChatMessageRow[]).map(mapChatMessage),
-    teamMembers: defaultStore.teamMembers,
   };
 }
 
@@ -2175,6 +2291,261 @@ export async function updateSettings(input: Partial<SiteStore["settings"]>) {
     .throwOnError();
 
   return nextSettings;
+}
+
+export async function listTeamMembers(): Promise<TeamMember[]> {
+  noStore();
+
+  const mock = maybeUseMock(() => mockStore.listTeamMembers());
+  if (mock !== MOCK_UNSET) {
+    return mock;
+  }
+
+  const client = getAdminClient();
+  if (!client) {
+    return mockStore.listTeamMembers();
+  }
+
+  return fetchTeamMembers();
+}
+
+export async function getTeamMemberById(id: string): Promise<TeamMember | null> {
+  noStore();
+
+  const mock = maybeUseMock(() => mockStore.getTeamMemberById(id));
+  if (mock !== MOCK_UNSET) {
+    return mock;
+  }
+
+  const client = getAdminClient();
+  if (!client) {
+    return mockStore.getTeamMemberById(id);
+  }
+
+  const { data } = await client
+    .from("team_members")
+    .select("*")
+    .eq("id", id)
+    .maybeSingle()
+    .throwOnError();
+
+  return data ? mapTeamMember(data as TeamMemberRow) : null;
+}
+
+export async function createTeamMember(input: {
+  name: string;
+  role: string;
+  description: string;
+  isFeatured: boolean;
+  sortOrder: number;
+  imageFile?: File | null;
+  imageLink?: string;
+}) {
+  const mock = maybeUseMock(() =>
+    mockStore.createTeamMember({
+      name: input.name,
+      role: input.role,
+      description: input.description,
+      imageUrl:
+        input.imageLink?.trim() ||
+        (input.imageFile
+          ? createPlaceholderImage({
+              title: input.name,
+              subtitle: "Team member portrait",
+              accent: "#1A5C2A",
+              background: "#48667D",
+            })
+          : null),
+      imagePath: null,
+      isFeatured: input.isFeatured,
+      sortOrder: input.sortOrder,
+    })
+  );
+  if (mock !== MOCK_UNSET) {
+    return mock;
+  }
+
+  const client = getAdminClient();
+  if (!client) {
+    return mockStore.createTeamMember({
+      name: input.name,
+      role: input.role,
+      description: input.description,
+      imageUrl:
+        input.imageLink?.trim() ||
+        (input.imageFile
+          ? createPlaceholderImage({
+              title: input.name,
+              subtitle: "Team member portrait",
+              accent: "#1A5C2A",
+              background: "#48667D",
+            })
+          : null),
+      imagePath: null,
+      isFeatured: input.isFeatured,
+      sortOrder: input.sortOrder,
+    });
+  }
+
+  const image = await resolveTeamMemberImage({
+    name: input.name,
+    imageFile: input.imageFile,
+    imageLink: input.imageLink,
+  });
+
+  if (input.isFeatured) {
+    await client
+      .from("team_members")
+      .update({ is_featured: false })
+      .eq("is_featured", true)
+      .throwOnError();
+  }
+
+  const { data } = await client
+    .from("team_members")
+    .insert({
+      name: input.name,
+      role: input.role,
+      description: input.description,
+      image_url: image.imageUrl,
+      image_path: image.imagePath,
+      is_featured: input.isFeatured,
+      sort_order: input.sortOrder,
+    })
+    .select("*")
+    .single()
+    .throwOnError();
+
+  return mapTeamMember(data as TeamMemberRow);
+}
+
+export async function updateTeamMember(
+  id: string,
+  input: {
+    name: string;
+    role: string;
+    description: string;
+    isFeatured: boolean;
+    sortOrder: number;
+    imageFile?: File | null;
+    imageLink?: string;
+    clearImage?: boolean;
+  }
+) {
+  const existing = await getTeamMemberById(id);
+  if (!existing) {
+    return null;
+  }
+
+  const mock = maybeUseMock(() =>
+    mockStore.updateTeamMember(id, {
+      name: input.name,
+      role: input.role,
+      description: input.description,
+      imageUrl:
+        input.imageLink?.trim() ||
+        (input.imageFile
+          ? createPlaceholderImage({
+              title: input.name,
+              subtitle: "Team member portrait",
+              accent: "#1A5C2A",
+              background: "#48667D",
+            })
+          : input.clearImage
+            ? null
+            : existing.imageUrl || null),
+      imagePath: null,
+      isFeatured: input.isFeatured,
+      sortOrder: input.sortOrder,
+    })
+  );
+  if (mock !== MOCK_UNSET) {
+    return mock;
+  }
+
+  const client = getAdminClient();
+  if (!client) {
+    return mockStore.updateTeamMember(id, {
+      name: input.name,
+      role: input.role,
+      description: input.description,
+      imageUrl:
+        input.imageLink?.trim() ||
+        (input.imageFile
+          ? createPlaceholderImage({
+              title: input.name,
+              subtitle: "Team member portrait",
+              accent: "#1A5C2A",
+              background: "#48667D",
+            })
+          : input.clearImage
+            ? null
+            : existing.imageUrl || null),
+      imagePath: null,
+      isFeatured: input.isFeatured,
+      sortOrder: input.sortOrder,
+    });
+  }
+
+  const image = await resolveTeamMemberImage({
+    name: input.name,
+    imageFile: input.imageFile,
+    imageLink: input.imageLink,
+    existingUrl: existing.imageUrl,
+    existingPath: existing.imagePath,
+    clearExisting: input.clearImage,
+  });
+
+  if (input.isFeatured) {
+    await client
+      .from("team_members")
+      .update({ is_featured: false })
+      .eq("is_featured", true)
+      .neq("id", id)
+      .throwOnError();
+  }
+
+  const { data } = await client
+    .from("team_members")
+    .update({
+      name: input.name,
+      role: input.role,
+      description: input.description,
+      image_url: image.imageUrl,
+      image_path: image.imagePath,
+      is_featured: input.isFeatured,
+      sort_order: input.sortOrder,
+    })
+    .eq("id", id)
+    .select("*")
+    .maybeSingle()
+    .throwOnError();
+
+  if (image.oldPathToDelete) {
+    await removeStorageFile(image.oldPathToDelete);
+  }
+
+  return data ? mapTeamMember(data as TeamMemberRow) : null;
+}
+
+export async function deleteTeamMember(id: string) {
+  const existing = await getTeamMemberById(id);
+
+  const mock = maybeUseMock(() => mockStore.deleteTeamMember(id));
+  if (mock !== MOCK_UNSET) {
+    return mock;
+  }
+
+  const client = getAdminClient();
+  if (!client) {
+    return mockStore.deleteTeamMember(id);
+  }
+
+  await client.from("team_members").delete().eq("id", id).throwOnError();
+
+  if (existing?.imagePath) {
+    await removeStorageFile(existing.imagePath);
+  }
 }
 
 export async function listProjects(

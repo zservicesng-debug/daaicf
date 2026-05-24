@@ -224,6 +224,11 @@ export interface TeamMember {
   name: string;
   role: string;
   description: string;
+  imageUrl?: string | null;
+  imagePath?: string | null;
+  isFeatured: boolean;
+  sortOrder: number;
+  createdAt: string;
 }
 
 export interface SettingsBundle {

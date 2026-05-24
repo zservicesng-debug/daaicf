@@ -45,6 +45,18 @@ function buildDefaultGalleryYears() {
   return Array.from({ length: 10 }, (_, index) => 2026 - index);
 }
 
+function sortTeamMembers(
+  members: SiteStore["teamMembers"]
+): SiteStore["teamMembers"] {
+  return [...members].sort((left, right) => {
+    if (left.sortOrder !== right.sortOrder) {
+      return left.sortOrder - right.sortOrder;
+    }
+
+    return left.createdAt.localeCompare(right.createdAt);
+  });
+}
+
 function mapGalleryCollections(items: SiteStore["gallery"]): GalleryCollection[] {
   const grouped = new Map<string, GalleryCollection>();
 
@@ -569,40 +581,7 @@ function buildInitialStore(): SiteStore {
         createdAt: isoDate(10),
       },
     ],
-    teamMembers: [
-      {
-        id: "team-1",
-        initials: initialsFromName("Dr. Andrew A. Igwe"),
-        name: "Dr. Andrew A. Igwe",
-        role: "Founder & Chairman",
-        description:
-          "A distinguished physician and philanthropist with over two decades of humanitarian service across sub-Saharan Africa.",
-      },
-      {
-        id: "team-2",
-        initials: initialsFromName("Mrs. Chioma Igwe"),
-        name: "Mrs. Chioma Igwe",
-        role: "Executive Director",
-        description:
-          "Leading strategic operations and ensuring every programme aligns with the foundation's core mission and values.",
-      },
-      {
-        id: "team-3",
-        initials: initialsFromName("Mr. Emeka Obi"),
-        name: "Mr. Emeka Obi",
-        role: "Programme Manager",
-        description:
-          "Coordinates outreach programmes, volunteer networks, and community engagement initiatives across target regions.",
-      },
-      {
-        id: "team-4",
-        initials: initialsFromName("Dr. Ngozi Eze"),
-        name: "Dr. Ngozi Eze",
-        role: "Health Programmes Lead",
-        description:
-          "Oversees all medical outreach activities, partnering with hospitals and clinics to deliver quality care to the underserved.",
-      },
-    ],
+    teamMembers: [],
   };
 }
 
@@ -615,7 +594,10 @@ export function resetMockStore() {
 }
 
 export function getStore() {
-  return structuredClone(store);
+  return structuredClone({
+    ...store,
+    teamMembers: sortTeamMembers(store.teamMembers),
+  });
 }
 
 export function listPosts(options?: {
@@ -1208,6 +1190,71 @@ export function updateSettings(input: Partial<SiteStore["settings"]>) {
   };
 
   return structuredClone(store.settings);
+}
+
+export function listTeamMembers() {
+  return structuredClone(sortTeamMembers(store.teamMembers));
+}
+
+export function getTeamMemberById(id: string) {
+  const member = store.teamMembers.find((entry) => entry.id === id);
+  return member ? structuredClone(member) : null;
+}
+
+export function createTeamMember(
+  input: Omit<
+    SiteStore["teamMembers"][number],
+    "id" | "initials" | "createdAt"
+  >
+) {
+  const nextMembers = input.isFeatured
+    ? store.teamMembers.map((member) => ({ ...member, isFeatured: false }))
+    : [...store.teamMembers];
+  const item: SiteStore["teamMembers"][number] = {
+    id: crypto.randomUUID(),
+    initials: initialsFromName(input.name),
+    createdAt: new Date().toISOString(),
+    ...input,
+  };
+
+  store.teamMembers = sortTeamMembers([...nextMembers, item]);
+  return structuredClone(item);
+}
+
+export function updateTeamMember(
+  id: string,
+  input: Partial<SiteStore["teamMembers"][number]>
+) {
+  const index = store.teamMembers.findIndex((entry) => entry.id === id);
+  if (index === -1) {
+    return null;
+  }
+
+  const current = store.teamMembers[index];
+  const nextName = input.name ?? current.name;
+  const nextIsFeatured = input.isFeatured ?? current.isFeatured;
+
+  if (nextIsFeatured) {
+    store.teamMembers = store.teamMembers.map((member) =>
+      member.id === id ? member : { ...member, isFeatured: false }
+    );
+  }
+
+  store.teamMembers[index] = {
+    ...current,
+    ...input,
+    name: nextName,
+    isFeatured: nextIsFeatured,
+    initials: initialsFromName(nextName),
+  };
+  store.teamMembers = sortTeamMembers(store.teamMembers);
+
+  const updated = store.teamMembers.find((entry) => entry.id === id);
+  return updated ? structuredClone(updated) : null;
+}
+
+export function deleteTeamMember(id: string) {
+  store.teamMembers = store.teamMembers.filter((entry) => entry.id !== id);
 }
 
 export function listProjects(status?: Project["status"]) {

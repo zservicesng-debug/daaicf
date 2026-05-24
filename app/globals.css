@@ -212,7 +212,7 @@ img {
   inset: -4%;
   opacity: 0;
   transform: scale(1.08);
-  animation: hero-slide-cycle 30s linear infinite;
+  animation: hero-slide-cycle 48s linear infinite;
   will-change: opacity, transform;
 }
 
@@ -226,9 +226,9 @@ img {
 
 .hero-tint-overlay {
   background:
-    linear-gradient(180deg, rgba(10, 58, 22, 0.28), rgba(16, 84, 33, 0.52)),
-    linear-gradient(120deg, rgba(26, 92, 42, 0.58), rgba(42, 122, 58, 0.34)),
-    radial-gradient(circle at 18% 16%, rgba(153, 255, 182, 0.14), transparent 28%);
+    linear-gradient(180deg, rgba(6, 32, 13, 0.44), rgba(10, 58, 22, 0.66)),
+    linear-gradient(120deg, rgba(18, 61, 28, 0.72), rgba(42, 122, 58, 0.38)),
+    radial-gradient(circle at 18% 16%, rgba(153, 255, 182, 0.1), transparent 30%);
 }
 
 .hero-line-overlay {
@@ -253,7 +253,7 @@ img {
     );
   background-size: 220% 100%, 100% 100%, 100% 100%;
   mix-blend-mode: screen;
-  animation: hero-line-sweep 16s linear infinite;
+  animation: hero-line-sweep 22s linear infinite;
 }
 
 .hero-stack > * {

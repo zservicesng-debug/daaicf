@@ -1,7 +1,8 @@
 import Image from "next/image";
+import { ArrowRight } from "lucide-react";
 import aboutUsImage from "@/assets/about-us.jpg";
 import { PageHero } from "@/components/public/page-hero";
-import { Card } from "@/components/ui/card";
+import { ButtonLink } from "@/components/ui/button";
 import {
   FOUNDATION_MOTTO,
   FOUNDATION_OPERATING_YEAR,
@@ -10,7 +11,7 @@ import {
 import { getStore } from "@/lib/store";
 
 export default async function AboutPage() {
-  const { teamMembers, settings } = await getStore();
+  const { settings } = await getStore();
   const yearsOfImpact = new Date().getFullYear() - FOUNDATION_OPERATING_YEAR;
 
   return (
@@ -18,7 +19,9 @@ export default async function AboutPage() {
       <PageHero
         eyebrow="Who We Are"
         title="About DAAICF"
-        description={`Built on compassion, operating since ${FOUNDATION_OPERATING_YEAR}, and officially registered in ${FOUNDATION_REGISTERED_YEAR}.`}
+        description={`We are a Non Governmental Organization (NGO) Established in 2009, Registered with Corporate Affairs Commission (CAC) with the mission of caring for humanity by rendering humanitarian services to the community and ensuring poverty reduction through: Educational Support, Infrastructural Development , Skill Acquisition Entrepreneurship Empowerment, Health Care Support and Community Service.`}
+        contentClassName="max-w-5xl"
+        descriptionClassName="max-w-4xl xl:max-w-5xl"
       />
 
       <section className="site-section bg-white">
@@ -94,30 +97,33 @@ export default async function AboutPage() {
       </section>
 
       <section className="site-section bg-white">
-        <div className="site-container text-center">
-          <div data-reveal="fade">
-            <p className="section-eyebrow">The Team</p>
-            <h2 className="serif-display mt-4 text-3xl font-bold text-[var(--color-text)] sm:text-4xl md:text-5xl">
-              The people behind the mission
-            </h2>
-          </div>
-          <div data-reveal-group className="mt-12 grid gap-6 sm:grid-cols-2 xl:grid-cols-4">
-            {teamMembers.map((member) => (
-              <Card key={member.id} className="p-6 text-center">
-                <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[var(--color-primary)] font-semibold text-white">
-                  {member.initials}
-                </div>
-                <h3 className="serif-display mt-5 text-2xl font-semibold text-[var(--color-text)]">
-                  {member.name}
-                </h3>
-                <p className="mt-2 text-sm font-semibold text-[var(--color-accent)]">
-                  {member.role}
-                </p>
-                <p className="mt-4 text-sm leading-7 muted-copy">
-                  {member.description}
-                </p>
-              </Card>
-            ))}
+        <div className="site-container">
+          <div
+            data-reveal="up"
+            className="overflow-hidden rounded-[34px] border border-[var(--color-border)] bg-[linear-gradient(135deg,#f7faf5_0%,#ecf3e9_46%,#ffffff_100%)] p-6 shadow-soft sm:p-8 lg:p-10"
+          >
+            <div className="max-w-3xl">
+              <p className="section-eyebrow">The Team</p>
+              <h2 className="serif-display mt-4 text-3xl font-bold text-[var(--color-text)] sm:text-4xl md:text-5xl">
+                Meet the people carrying the mission forward
+              </h2>
+              <p className="mt-6 text-base leading-8 muted-copy md:text-lg">
+                Behind DAAICF&apos;s outreach, scholarships, infrastructure support,
+                and community response is a team committed to practical service,
+                accountability, and humane leadership.
+              </p>
+              <p className="mt-4 text-base leading-8 muted-copy md:text-lg">
+                Explore the full members page to see who is helping shape the
+                foundation&apos;s impact across programmes and partnerships.
+              </p>
+              <ButtonLink
+                href="/about/team"
+                className="mt-8 rounded-[var(--radius-card)]"
+              >
+                View the Team
+                <ArrowRight className="h-4 w-4" />
+              </ButtonLink>
+            </div>
           </div>
         </div>
       </section>

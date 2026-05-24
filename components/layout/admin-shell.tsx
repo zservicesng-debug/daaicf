@@ -25,6 +25,7 @@ import { cn } from "@/lib/utils";
 const adminNav = [
   { href: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/admin/posts", label: "Posts", icon: SquarePen },
+  { href: "/admin/team", label: "Team", icon: Users },
   { href: "/admin/applications", label: "Applications", icon: HandHeart },
   { href: "/admin/comments", label: "Comments", icon: MessageSquareMore },
   { href: "/admin/gallery", label: "Gallery", icon: ImageIcon },

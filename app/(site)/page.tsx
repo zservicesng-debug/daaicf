@@ -13,10 +13,8 @@ import slide3 from "@/assets/slide3.jpg";
 import slide4 from "@/assets/slide4.jpg";
 import slide5 from "@/assets/slide5.jpg";
 import slide6 from "@/assets/slide6.jpg";
-import { QuickCommentForm } from "@/components/public/comment-form";
 import { PostCard } from "@/components/public/post-card";
 import { AnimatedCount } from "@/components/ui/animated-count";
-import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import {
@@ -53,7 +51,7 @@ const heroSlides = [slide1, slide2, slide3, slide4, slide5, slide6];
 
 export default async function HomePage() {
   const { settings } = await getStore();
-  const featuredPosts = (await listPosts({ publishedOnly: true, perPage: 3 })).items;
+  const featuredPosts = (await listPosts({ publishedOnly: true, perPage: 2 })).items;
   const serviceYears = Math.max(
     settings.impact.yearsOfService,
     new Date().getFullYear() - FOUNDATION_OPERATING_YEAR
@@ -90,7 +88,7 @@ export default async function HomePage() {
             <div
               key={slide.src}
               className="hero-slide"
-              style={{ animationDelay: `${index * 6}s` }}
+              style={{ animationDelay: `${index * 8}s` }}
             >
               <Image
                 src={slide}
@@ -105,25 +103,28 @@ export default async function HomePage() {
           ))}
         </div>
         <div className="hero-tint-overlay absolute inset-0" />
-        <div className="absolute inset-0 grain-overlay opacity-55" />
-        <div className="hero-line-overlay absolute inset-0 opacity-70" />
-        <div className="hero-orb absolute -left-10 top-24 h-44 w-44 rounded-full bg-white/10 blur-3xl" />
+        <div className="absolute inset-0 grain-overlay opacity-42" />
         <div className="hero-orb hero-orb-delay absolute right-10 top-16 h-56 w-56 rounded-full bg-[rgba(196,30,30,0.18)] blur-3xl" />
-        <div className="hero-orb absolute bottom-16 right-1/4 h-40 w-40 rounded-full bg-[rgba(124,214,141,0.12)] blur-3xl" />
 
         <div className="site-container relative z-10 flex min-h-[calc(100vh-84px)] items-center justify-center py-16 md:py-20">
           <div className="hero-stack max-w-4xl text-center">
-            <Badge className="mx-auto border border-white/18 bg-white/10 px-4 py-2 text-[11px] font-semibold tracking-[0.18em] text-white/88 backdrop-blur-sm">
-              {FOUNDATION_MOTTO} since {FOUNDATION_OPERATING_YEAR}
-            </Badge>
-            <h1 className="serif-display mx-auto mt-6 max-w-5xl text-4xl font-bold tracking-tight text-white sm:text-5xl xl:text-6xl">
+            <div className="mx-auto flex w-fit flex-col items-center rounded-[28px] border border-white/18 bg-[rgba(7,20,10,0.22)] px-6 py-4 shadow-[0_18px_50px_rgba(0,0,0,0.22)] backdrop-blur-sm sm:px-8">
+              <span className="text-[11px] font-semibold tracking-[0.22em] text-white/72 uppercase">
+                Foundation Motto
+              </span>
+              <span className="serif-display mt-2 text-3xl font-bold tracking-tight text-white drop-shadow-[0_10px_30px_rgba(0,0,0,0.5)] sm:text-4xl xl:text-[3.25rem]">
+                {FOUNDATION_MOTTO}
+              </span>
+              <span className="mt-2 text-[11px] font-semibold tracking-[0.3em] text-white/82 uppercase sm:text-xs">
+                Since {FOUNDATION_OPERATING_YEAR}
+              </span>
+            </div>
+            <h1 className="serif-display mx-auto mt-6 max-w-5xl text-4xl font-bold tracking-tight text-white drop-shadow-[0_12px_34px_rgba(0,0,0,0.5)] sm:text-5xl xl:text-6xl">
               Dr. Andrew A. Igwe Care Foundation
             </h1>
-            <p className="mx-auto mt-5 max-w-3xl text-base leading-8 text-white/80 sm:text-lg md:text-xl md:leading-9">
-              Transforming lives through education, healthcare, infrastructure,
-              and empowerment, serving communities across Nigeria since{" "}
-              {FOUNDATION_OPERATING_YEAR} and officially registered in{" "}
-              {FOUNDATION_REGISTERED_YEAR}.
+            <p className="mx-auto mt-5 max-w-2xl text-base leading-8 text-white/92 drop-shadow-[0_8px_24px_rgba(0,0,0,0.38)] sm:text-lg md:text-xl md:leading-9">
+              Practical care through education, healthcare, infrastructure, and
+              empowerment for communities across Nigeria.
             </p>
             <div className="mt-8 flex flex-col gap-4 sm:flex-row sm:justify-center">
               <ButtonLink href="/activities" variant="primary" className="sm:min-w-44">
@@ -135,11 +136,8 @@ export default async function HomePage() {
                 <ArrowRight className="h-4 w-4" />
               </ButtonLink>
             </div>
-            <p className="mx-auto mt-8 max-w-3xl text-xs tracking-[0.16em] text-white/60 sm:text-sm">
-              RC: {settings.organization.rcNumber} | Operating since{" "}
-              {FOUNDATION_OPERATING_YEAR} | Registered in{" "}
-              {FOUNDATION_REGISTERED_YEAR} |{" "}
-              {settings.organization.country.toUpperCase()}
+            <p className="mx-auto mt-6 text-sm font-medium text-white/76">
+              Registered in {FOUNDATION_REGISTERED_YEAR} · RC {settings.organization.rcNumber}
             </p>
           </div>
         </div>
@@ -244,6 +242,10 @@ export default async function HomePage() {
               <h2 className="serif-display mt-3 text-3xl font-bold text-[var(--color-text)] sm:text-4xl md:text-5xl">
                 Recent Activities
               </h2>
+              <p className="mt-3 max-w-2xl text-sm leading-7 muted-copy md:text-base">
+                A lighter snapshot of the latest outreach work. Visit the activities
+                page for the full archive and discussion.
+              </p>
             </div>
             <Link
               href="/activities"
@@ -255,13 +257,9 @@ export default async function HomePage() {
           </div>
 
           {featuredPosts.length > 0 ? (
-            <div data-reveal-group className="grid gap-6 lg:grid-cols-3">
+            <div data-reveal-group className="grid gap-6 lg:grid-cols-2">
               {featuredPosts.map((post) => (
-                <PostCard
-                  key={post.id}
-                  post={post}
-                  commentSlot={<QuickCommentForm postId={post.id} postSlug={post.slug} />}
-                />
+                <PostCard key={post.id} post={post} />
               ))}
             </div>
           ) : (
