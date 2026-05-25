@@ -109,9 +109,6 @@ export default async function HomePage() {
         <div className="site-container relative z-10 flex min-h-[calc(100vh-84px)] items-center justify-center py-16 md:py-20">
           <div className="hero-stack max-w-4xl text-center">
             <div className="mx-auto flex w-fit flex-col items-center rounded-[28px] border border-white/18 bg-[rgba(7,20,10,0.22)] px-6 py-4 shadow-[0_18px_50px_rgba(0,0,0,0.22)] backdrop-blur-sm sm:px-8">
-              <span className="text-[11px] font-semibold tracking-[0.22em] text-white/72 uppercase">
-                Foundation Motto
-              </span>
               <span className="serif-display mt-2 text-3xl font-bold tracking-tight text-white drop-shadow-[0_10px_30px_rgba(0,0,0,0.5)] sm:text-4xl xl:text-[3.25rem]">
                 {FOUNDATION_MOTTO}
               </span>
