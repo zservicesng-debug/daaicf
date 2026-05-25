@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Bold,
   Heading2,
@@ -30,10 +30,24 @@ type GalleryLinkRow = {
   url: string;
 };
 
+type GalleryFileRow = {
+  id: string;
+  file: File;
+  previewUrl: string;
+};
+
 function createGalleryLinkRow(): GalleryLinkRow {
   return {
     id: crypto.randomUUID(),
     url: "",
+  };
+}
+
+function createGalleryFileRow(file: File): GalleryFileRow {
+  return {
+    id: crypto.randomUUID(),
+    file,
+    previewUrl: URL.createObjectURL(file),
   };
 }
 
@@ -72,7 +86,7 @@ export function PostEditorForm({ post }: { post?: Post | null }) {
   const initialContent = post?.content || "<p>Start writing...</p>";
   const [coverFilePreview, setCoverFilePreview] = useState<string | null>(null);
   const [coverImageLink, setCoverImageLink] = useState("");
-  const [galleryFilePreviews, setGalleryFilePreviews] = useState<string[]>([]);
+  const [galleryFiles, setGalleryFiles] = useState<GalleryFileRow[]>([]);
   const [galleryLinkRows, setGalleryLinkRows] = useState<GalleryLinkRow[]>([
     createGalleryLinkRow(),
   ]);
@@ -80,6 +94,9 @@ export function PostEditorForm({ post }: { post?: Post | null }) {
   const [content, setContent] = useState(initialContent);
   const [uploadingImage, setUploadingImage] = useState(false);
   const editorImageInputRef = useRef<HTMLInputElement | null>(null);
+  const galleryFilePickerRef = useRef<HTMLInputElement | null>(null);
+  const galleryFileInputRef = useRef<HTMLInputElement | null>(null);
+  const galleryFilesRef = useRef<GalleryFileRow[]>([]);
   const { toast } = useToast();
 
   const editor = useEditor({
@@ -97,6 +114,7 @@ export function PostEditorForm({ post }: { post?: Post | null }) {
     post?.coverImageUrl ||
     "";
   const existingGalleryPreviews = clearGallery ? [] : post?.galleryImageUrls || [];
+  const galleryFilePreviews = galleryFiles.map((item) => item.previewUrl);
   const galleryLinkPreviews = galleryLinkRows
     .map((row) => row.url.trim())
     .filter(isPreviewableImageUrl);
@@ -105,6 +123,57 @@ export function PostEditorForm({ post }: { post?: Post | null }) {
     ...galleryLinkPreviews,
     ...galleryFilePreviews,
   ];
+
+  useEffect(() => {
+    galleryFilesRef.current = galleryFiles;
+  }, [galleryFiles]);
+
+  useEffect(() => {
+    return () => {
+      galleryFilesRef.current.forEach((item) => {
+        URL.revokeObjectURL(item.previewUrl);
+      });
+    };
+  }, []);
+
+  function syncGalleryFileInput(nextFiles: GalleryFileRow[]) {
+    const input = galleryFileInputRef.current;
+    if (!input) {
+      return;
+    }
+
+    const transfer = new DataTransfer();
+    nextFiles.forEach((item) => {
+      transfer.items.add(item.file);
+    });
+    input.files = transfer.files;
+  }
+
+  function appendGalleryFiles(files: File[]) {
+    if (files.length === 0) {
+      return;
+    }
+
+    setGalleryFiles((current) => {
+      const nextFiles = [...current, ...files.map(createGalleryFileRow)];
+      syncGalleryFileInput(nextFiles);
+      return nextFiles;
+    });
+  }
+
+  function removeGalleryFile(fileId: string) {
+    setGalleryFiles((current) => {
+      const nextFiles = current.filter((item) => item.id !== fileId);
+      const removedFile = current.find((item) => item.id === fileId);
+
+      if (removedFile) {
+        URL.revokeObjectURL(removedFile.previewUrl);
+      }
+
+      syncGalleryFileInput(nextFiles);
+      return nextFiles;
+    });
+  }
 
   async function uploadEditorImage(file: File) {
     const formData = new FormData();
@@ -343,20 +412,87 @@ export function PostEditorForm({ post }: { post?: Post | null }) {
             </div>
           </div>
 
-          <div>
-            <label className="mb-2 block text-sm font-semibold">
-              Upload extra photo files
-            </label>
-            <TextInput
+          <div className="space-y-3 rounded-[var(--radius-card)] border border-[var(--color-border)] bg-white p-4">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-sm font-semibold text-[var(--color-text)]">
+                  Upload extra photo files
+                </p>
+                <p className="mt-1 text-sm muted-copy">
+                  Pick one or many photos from your device, add more in batches,
+                  and remove any one you do not want before saving.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => galleryFilePickerRef.current?.click()}
+                className={cn(
+                  buttonClasses({ variant: "surface", fullWidth: false }),
+                  "px-4 py-2 text-xs"
+                )}
+              >
+                <Plus className="h-4 w-4" />
+                Add Photos
+              </button>
+            </div>
+
+            <input
+              ref={galleryFilePickerRef}
+              type="file"
+              accept="image/*"
+              multiple
+              className="hidden"
+              onChange={(event) => {
+                appendGalleryFiles(Array.from(event.target.files || []));
+                event.target.value = "";
+              }}
+            />
+            <input
+              ref={galleryFileInputRef}
               name="galleryImageFiles"
               type="file"
               accept="image/*"
               multiple
-              onChange={(event) => {
-                const files = Array.from(event.target.files || []);
-                setGalleryFilePreviews(files.map((file) => URL.createObjectURL(file)));
-              }}
+              className="hidden"
             />
+
+            {galleryFiles.length > 0 ? (
+              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                {galleryFiles.map((item, index) => (
+                  <div
+                    key={item.id}
+                    className="overflow-hidden rounded-[var(--radius-card)] border border-[var(--color-border)] bg-[var(--color-surface-muted)]"
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={item.previewUrl}
+                      alt={`Selected upload ${index + 1}`}
+                      className="aspect-[4/3] w-full object-cover"
+                    />
+                    <div className="flex items-center justify-between gap-3 px-3 py-3">
+                      <p className="min-w-0 flex-1 truncate text-sm text-[var(--color-text)]">
+                        {item.file.name}
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => removeGalleryFile(item.id)}
+                        className={cn(
+                          buttonClasses({ variant: "danger", fullWidth: false }),
+                          "px-3 py-2"
+                        )}
+                        aria-label={`Remove uploaded photo ${index + 1}`}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="rounded-[var(--radius-card)] border border-[var(--color-border)] bg-[var(--color-surface-muted)] px-4 py-5 text-sm muted-copy">
+                No photo files selected yet.
+              </div>
+            )}
           </div>
 
           {post?.galleryImageUrls?.length ? (
