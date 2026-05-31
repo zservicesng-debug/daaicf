@@ -645,6 +645,7 @@ export function getPostBySlug(slug: string) {
 export function createPost(input: {
   title: string;
   category: Post["category"];
+  partnerName?: string | null;
   content: string;
   socialLinks: Post["socialLinks"];
   published: boolean;
@@ -673,6 +674,7 @@ export function createPost(input: {
     excerpt: excerpt(input.content, 160),
     content: input.content,
     category: input.category,
+    partnerName: input.partnerName?.trim() || null,
     socialLinks: input.socialLinks,
     coverImageUrl:
       input.coverImageLink?.trim() ||
@@ -703,6 +705,7 @@ export function updatePost(
   input: {
     title: string;
     category: Post["category"];
+    partnerName?: string | null;
     content: string;
     socialLinks: Post["socialLinks"];
     published: boolean;
@@ -739,6 +742,7 @@ export function updatePost(
     title: input.title,
     slug: nextSlug,
     category: input.category,
+    partnerName: input.partnerName?.trim() || null,
     content: input.content,
     socialLinks: input.socialLinks,
     excerpt: excerpt(input.content, 160),

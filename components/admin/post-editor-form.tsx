@@ -82,10 +82,20 @@ function ToolbarButton({
   );
 }
 
-export function PostEditorForm({ post }: { post?: Post | null }) {
+export function PostEditorForm({
+  post,
+  partnerOptions = [],
+}: {
+  post?: Post | null;
+  partnerOptions?: Array<{ id: string; name: string }>;
+}) {
   const initialContent = post?.content || "<p>Start writing...</p>";
   const [coverFilePreview, setCoverFilePreview] = useState<string | null>(null);
   const [coverImageLink, setCoverImageLink] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState<Post["category"]>(
+    post?.category || "Health"
+  );
+  const [partnerName, setPartnerName] = useState(post?.partnerName || "");
   const [galleryFiles, setGalleryFiles] = useState<GalleryFileRow[]>([]);
   const [galleryLinkRows, setGalleryLinkRows] = useState<GalleryLinkRow[]>([
     createGalleryLinkRow(),
@@ -123,6 +133,9 @@ export function PostEditorForm({ post }: { post?: Post | null }) {
     ...galleryLinkPreviews,
     ...galleryFilePreviews,
   ];
+  const hasCustomPartnerName =
+    partnerName.length > 0 &&
+    !partnerOptions.some((partnerOption) => partnerOption.name === partnerName);
 
   useEffect(() => {
     galleryFilesRef.current = galleryFiles;
@@ -247,15 +260,51 @@ export function PostEditorForm({ post }: { post?: Post | null }) {
         </div>
         <div>
           <label className="mb-2 block text-sm font-semibold">Category</label>
-          <SelectInput name="category" defaultValue={post?.category || "Health"}>
+          <SelectInput
+            name="category"
+            defaultValue={post?.category || "Health"}
+            onChange={(event) =>
+              setSelectedCategory(event.target.value as Post["category"])
+            }
+          >
             <option value="Health">Health</option>
             <option value="Education">Education</option>
             <option value="Empowerment">Empowerment</option>
             <option value="Events">Events</option>
             <option value="Infrastructure">Infrastructure</option>
+            <option value="Community Service">Community Service</option>
+            <option value="Awards/Recognition">Awards/Recognition</option>
+            <option value="Partnership">Partnership</option>
+            <option value="Scholarship">Scholarship</option>
           </SelectInput>
         </div>
       </div>
+
+      {selectedCategory === "Partnership" ? (
+        <div>
+          <label className="mb-2 block text-sm font-semibold">
+            Partner <span className="font-normal muted-copy">(optional)</span>
+          </label>
+          <SelectInput
+            name="partnerName"
+            value={partnerName}
+            onChange={(event) => setPartnerName(event.target.value)}
+          >
+            <option value="">No partner selected</option>
+            {hasCustomPartnerName ? (
+              <option value={partnerName}>{partnerName}</option>
+            ) : null}
+            {partnerOptions.map((partner) => (
+              <option key={partner.id} value={partner.name}>
+                {partner.name}
+              </option>
+            ))}
+          </SelectInput>
+          <p className="mt-2 text-sm muted-copy">
+            Choose a partner for this activity, or leave it empty.
+          </p>
+        </div>
+      ) : null}
 
       <div>
         <label className="mb-2 block text-sm font-semibold">

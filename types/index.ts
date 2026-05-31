@@ -3,7 +3,11 @@ export type PostCategory =
   | "Education"
   | "Empowerment"
   | "Events"
-  | "Infrastructure";
+  | "Infrastructure"
+  | "Community Service"
+  | "Awards/Recognition"
+  | "Partnership"
+  | "Scholarship";
 
 export interface SocialLinks {
   facebookUrl?: string;
@@ -59,6 +63,7 @@ export interface Post {
   excerpt: string;
   content: string;
   category: PostCategory;
+  partnerName?: string | null;
   socialLinks: SocialLinks;
   coverImageUrl: string;
   coverImagePath?: string | null;

@@ -53,6 +53,14 @@ export function categoryTone(category: PostCategory | GalleryAlbum | HelpType) {
       return "bg-[#A35C22] text-white";
     case "Events":
       return "bg-[#1E4F8E] text-white";
+    case "Community Service":
+      return "bg-[#2E7D61] text-white";
+    case "Awards/Recognition":
+      return "bg-[#7B5A14] text-white";
+    case "Partnership":
+      return "bg-[#5A4FA3] text-white";
+    case "Scholarship":
+      return "bg-[#1B6C8D] text-white";
     case "Infrastructure":
       return "bg-[#4D6B73] text-white";
     case "Relief":

@@ -6,6 +6,10 @@ import { listPosts } from "@/lib/store";
 
 const categories = [
   "All",
+  "Community Service",
+  "Awards/Recognition",
+  "Partnership",
+  "Scholarship",
   "Education",
   "Health",
   "Empowerment",

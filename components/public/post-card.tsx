@@ -40,6 +40,11 @@ export function PostCard({
           <h3 className="serif-display text-2xl font-semibold text-[var(--color-text)]">
             {post.title}
           </h3>
+          {post.partnerName ? (
+            <p className="mt-1 text-xs font-semibold uppercase tracking-[0.08em] text-[var(--color-primary)]">
+              Partner: {post.partnerName}
+            </p>
+          ) : null}
           <p className="mt-3 text-sm leading-7 muted-copy">{post.excerpt}</p>
         </div>
         <Link

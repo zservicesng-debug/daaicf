@@ -75,6 +75,10 @@ const postSchema = z.object({
     "Empowerment",
     "Events",
     "Infrastructure",
+    "Community Service",
+    "Awards/Recognition",
+    "Partnership",
+    "Scholarship",
   ]),
   content: z.string().min(20),
   published: z.enum(["draft", "published"]),
@@ -248,6 +252,10 @@ export async function savePostAction(formData: FormData) {
   const payload = {
     title: data.title,
     category: data.category,
+    partnerName:
+      data.category === "Partnership"
+        ? String(formData.get("partnerName") || "").trim() || null
+        : null,
     content: data.content,
     socialLinks: {
       facebookUrl: String(formData.get("facebookUrl") || ""),

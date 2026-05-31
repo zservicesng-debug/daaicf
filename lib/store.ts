@@ -43,6 +43,7 @@ type PostRow = {
   excerpt: string;
   content: string;
   category: Post["category"];
+  partner_name: string | null;
   facebook_url: string | null;
   twitter_url: string | null;
   instagram_url: string | null;
@@ -256,6 +257,7 @@ function mapPost(row: PostRow): Post {
     excerpt: row.excerpt,
     content: row.content,
     category: row.category,
+    partnerName: row.partner_name || null,
     socialLinks: {
       facebookUrl: row.facebook_url || undefined,
       twitterUrl: row.twitter_url || undefined,
@@ -1189,6 +1191,7 @@ export async function getPostBySlug(slug: string): Promise<Post | null> {
 export async function createPost(input: {
   title: string;
   category: Post["category"];
+  partnerName?: string | null;
   content: string;
   socialLinks: Post["socialLinks"];
   published: boolean;
@@ -1202,6 +1205,7 @@ export async function createPost(input: {
     mockStore.createPost({
       title: input.title,
       category: input.category,
+      partnerName: input.partnerName,
       content: input.content,
       socialLinks: input.socialLinks,
       published: input.published,
@@ -1221,6 +1225,7 @@ export async function createPost(input: {
     return mockStore.createPost({
       title: input.title,
       category: input.category,
+      partnerName: input.partnerName,
       content: input.content,
       socialLinks: input.socialLinks,
       published: input.published,
@@ -1254,6 +1259,7 @@ export async function createPost(input: {
       excerpt: excerpt(input.content, 160),
       content: input.content,
       category: input.category,
+      partner_name: input.partnerName?.trim() || null,
       facebook_url: input.socialLinks.facebookUrl?.trim() || null,
       twitter_url: input.socialLinks.twitterUrl?.trim() || null,
       instagram_url: input.socialLinks.instagramUrl?.trim() || null,
@@ -1276,6 +1282,7 @@ export async function updatePost(
   input: {
     title: string;
     category: Post["category"];
+    partnerName?: string | null;
     content: string;
     socialLinks: Post["socialLinks"];
     published: boolean;
@@ -1291,6 +1298,7 @@ export async function updatePost(
     mockStore.updatePost(slug, {
       title: input.title,
       category: input.category,
+      partnerName: input.partnerName,
       content: input.content,
       socialLinks: input.socialLinks,
       published: input.published,
@@ -1311,6 +1319,7 @@ export async function updatePost(
     return mockStore.updatePost(slug, {
       title: input.title,
       category: input.category,
+      partnerName: input.partnerName,
       content: input.content,
       socialLinks: input.socialLinks,
       published: input.published,
@@ -1361,6 +1370,7 @@ export async function updatePost(
       excerpt: excerpt(input.content, 160),
       content: input.content,
       category: input.category,
+      partner_name: input.partnerName?.trim() || null,
       facebook_url: input.socialLinks.facebookUrl?.trim() || null,
       twitter_url: input.socialLinks.twitterUrl?.trim() || null,
       instagram_url: input.socialLinks.instagramUrl?.trim() || null,

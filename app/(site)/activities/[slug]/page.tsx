@@ -37,6 +37,11 @@ export default async function ActivityDetailPage(
       <div className="site-container -mt-16 relative pb-20">
         <div className="card-surface mx-auto max-w-4xl p-6 md:p-10">
           <Badge className={cn(categoryTone(post.category))}>{post.category}</Badge>
+          {post.partnerName ? (
+            <p className="mt-3 text-sm font-semibold text-[var(--color-primary)]">
+              Partner: {post.partnerName}
+            </p>
+          ) : null}
           <p className="mt-4 flex items-center gap-2 text-sm muted-copy">
             <CalendarDays className="h-4 w-4" />
             {formatDate(post.createdAt)}
