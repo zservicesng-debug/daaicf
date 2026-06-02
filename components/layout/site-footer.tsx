@@ -98,9 +98,7 @@ export async function SiteFooter() {
           </div>
         </div>
 
-        <div data-reveal="fade" className="text-center text-xs text-white/38">
-          <Link href="/admin/login">Admin Portal</Link>
-        </div>
+
       </div>
     </footer>
   );
