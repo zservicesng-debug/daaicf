@@ -61,9 +61,16 @@ export default async function AboutPage() {
               <ul className="list-disc space-y-3 pl-5">
                 <li>Scholarships for students</li>
                 <li>Entrepreneurship programs for widows and orphans</li>
-                <li>Infrastructure projects such as portable water systems and street lighting</li>
-                <li>Provision of study materials such as textbooks and school bags</li>
+                <li>Infrastructural projects such as portable water systems and street lighting</li>
+                <li>Provision of study materials (textbooks, bags, etc.)</li>
               </ul>
+              <p>
+                Dr. Igwe&apos;s core values are compassion, sustainability, and
+                empowerment. He believes that lasting change is achieved by
+                uplifting individuals and building resilient communities, and he
+                continues to inspire others to join him in making a meaningful
+                difference.
+              </p>
             </div>
           </div>
         </div>
@@ -82,11 +89,7 @@ export default async function AboutPage() {
           <p className="mx-auto mt-8 max-w-3xl text-base leading-8 muted-copy md:text-lg">
             The foundation began operating in {FOUNDATION_OPERATING_YEAR} and was
             officially registered in {FOUNDATION_REGISTERED_YEAR} (RC:{" "}
-            {settings.organization.rcNumber}). Dr. Igwe&apos;s core values are
-            compassion, sustainability, and empowerment. He believes that lasting
-            change is achieved by uplifting individuals and building resilient
-            communities, and he continues to inspire others to join him in making a
-            meaningful difference.
+            {settings.organization.rcNumber}).
           </p>
           <p className="mx-auto mt-6 max-w-3xl text-base leading-8 muted-copy md:text-lg">
             Since then, DAAICF has continued to serve communities across education,
