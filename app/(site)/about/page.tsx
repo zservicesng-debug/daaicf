@@ -1,6 +1,6 @@
 import Image from "next/image";
 import { ArrowRight } from "lucide-react";
-import aboutUsImage from "@/assets/about-us.jpg";
+import aboutUsImage from "@/assets/about-us.jpeg";
 import { PageHero } from "@/components/public/page-hero";
 import { ButtonLink } from "@/components/ui/button";
 import {
