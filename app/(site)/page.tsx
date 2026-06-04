@@ -49,6 +49,12 @@ const values = [
 
 const heroSlides = [slide1, slide2, slide3, slide4, slide5, slide6];
 
+function buildFeaturedPostHref(slug: string) {
+  const params = new URLSearchParams();
+  params.set("from", "/");
+  return `/activities/${slug}?${params.toString()}`;
+}
+
 export default async function HomePage() {
   const { settings } = await getStore();
   const featuredPosts = (await listPosts({ publishedOnly: true, perPage: 2 })).items;
@@ -256,7 +262,11 @@ export default async function HomePage() {
           {featuredPosts.length > 0 ? (
             <div data-reveal-group className="grid gap-6 lg:grid-cols-2">
               {featuredPosts.map((post) => (
-                <PostCard key={post.id} post={post} />
+                <PostCard
+                  key={post.id}
+                  post={post}
+                  href={buildFeaturedPostHref(post.slug)}
+                />
               ))}
             </div>
           ) : (

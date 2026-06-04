@@ -38,7 +38,7 @@ export default async function AboutPage() {
             <h2 className="serif-display mt-4 text-3xl font-bold text-[var(--color-text)] sm:text-4xl md:text-5xl">
               Dr. Andrew A. Igwe, FISPN, FECRMI, FIMC, CMC, MNES
             </h2>
-            <p className="mt-3 text-base muted-copy md:text-lg">
+            <p className="mt-3 text-lg font-semibold text-[var(--color-text)] md:text-xl">
               Founder & Sole Financer - Dr. Andrew A. Igwe Care Foundation
             </p>
             <p className="mt-2 text-base muted-copy md:text-lg">

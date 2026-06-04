@@ -1,22 +1,46 @@
 import Image from "next/image";
-import { CalendarDays } from "lucide-react";
+import { ArrowLeft, CalendarDays } from "lucide-react";
 import { FullCommentForm } from "@/components/public/comment-form";
 import { PostGalleryLightbox } from "@/components/public/post-gallery-lightbox";
 import { Badge } from "@/components/ui/badge";
+import { ButtonLink } from "@/components/ui/button";
 import { getSocialLinks } from "@/lib/social";
 import { getPostBySlug, listComments } from "@/lib/store";
 import { categoryTone, cn, formatDate } from "@/lib/utils";
 import { notFound } from "next/navigation";
 
+function getSafeReturnHref(value: unknown) {
+  if (typeof value !== "string") {
+    return "/activities";
+  }
+
+  const trimmed = value.trim();
+
+  if (!trimmed.startsWith("/") || trimmed.startsWith("//")) {
+    return "/activities";
+  }
+
+  return trimmed;
+}
+
 export default async function ActivityDetailPage(
   props: PageProps<"/activities/[slug]">
 ) {
   const { slug } = await props.params;
+  const searchParams = await props.searchParams;
   const post = await getPostBySlug(slug);
 
   if (!post) {
     notFound();
   }
+
+  const returnHref = getSafeReturnHref(searchParams.from);
+  const returnLabel =
+    returnHref === "/"
+      ? "Back to home"
+      : returnHref.startsWith("/activities")
+        ? "Back to activities"
+        : "Go back";
 
   const comments = (await listComments(post.id)).filter(
     (comment) => comment.status === "approved"
@@ -36,6 +60,10 @@ export default async function ActivityDetailPage(
       </div>
       <div className="site-container -mt-16 relative pb-20">
         <div className="card-surface mx-auto max-w-4xl p-6 md:p-10">
+          <ButtonLink href={returnHref} variant="surface" className="mb-6 w-fit">
+            <ArrowLeft className="h-4 w-4" />
+            {returnLabel}
+          </ButtonLink>
           <Badge className={cn(categoryTone(post.category))}>{post.category}</Badge>
           {post.partnerName ? (
             <p className="mt-3 text-sm font-semibold text-[var(--color-primary)]">
