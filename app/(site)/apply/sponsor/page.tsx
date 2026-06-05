@@ -10,7 +10,7 @@ export default async function SponsorApplyPage() {
       <PageHero
         eyebrow="Support Our Cause"
         title="Become a Sponsor"
-        description="Support the foundation generally, focus on a particular sector, or back specific active projects that strengthen underserved communities."
+        description="Support the foundation generally, focus on a particular sector, or specific active projects that strengthen underserved communities."
       />
       <section className="site-section bg-white">
         <div className="site-container">
