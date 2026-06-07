@@ -1,3 +1,5 @@
+export { appUrl, appendSearchParam, getAppBaseUrl } from "@/lib/site-url";
+
 type EmailDetail = {
   label: string;
   value?: string | number | null;
@@ -7,33 +9,6 @@ type EmailCta = {
   label: string;
   href: string;
 };
-
-function trimTrailingSlash(value: string) {
-  return value.replace(/\/+$/, "");
-}
-
-export function getAppBaseUrl() {
-  return trimTrailingSlash(
-    process.env.APP_BASE_URL ||
-      process.env.NEXT_PUBLIC_SITE_URL ||
-      process.env.PORTAL_INVITE_REDIRECT_TO?.replace(/\/auth\/invite.*$/, "") ||
-      "http://localhost:3000"
-  );
-}
-
-export function appUrl(path = "/") {
-  if (/^https?:\/\//i.test(path)) {
-    return path;
-  }
-
-  return `${getAppBaseUrl()}${path.startsWith("/") ? path : `/${path}`}`;
-}
-
-export function appendSearchParam(url: string, key: string, value: string) {
-  const parsed = new URL(url);
-  parsed.searchParams.set(key, value);
-  return parsed.toString();
-}
 
 export function escapeHtml(value: unknown) {
   return String(value ?? "")

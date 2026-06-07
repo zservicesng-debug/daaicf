@@ -1,12 +1,13 @@
 import Image from "next/image";
 import { ArrowLeft, CalendarDays } from "lucide-react";
+import type { Metadata } from "next";
 import { FullCommentForm } from "@/components/public/comment-form";
 import { PostGalleryLightbox } from "@/components/public/post-gallery-lightbox";
 import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
 import { getSocialLinks } from "@/lib/social";
 import { getPostBySlug, listComments } from "@/lib/store";
-import { categoryTone, cn, formatDate } from "@/lib/utils";
+import { categoryTone, cn, excerpt, formatDate } from "@/lib/utils";
 import { notFound } from "next/navigation";
 
 function getSafeReturnHref(value: unknown) {
@@ -23,6 +24,52 @@ function getSafeReturnHref(value: unknown) {
   return trimmed;
 }
 
+export async function generateMetadata(
+  props: PageProps<"/activities/[slug]">
+): Promise<Metadata> {
+  const { slug } = await props.params;
+  const post = await getPostBySlug(slug);
+
+  if (!post || !post.published) {
+    return {
+      title: "Activity not found",
+      robots: {
+        index: false,
+        follow: false,
+      },
+    };
+  }
+
+  const description = post.excerpt || excerpt(post.content, 160);
+
+  return {
+    title: post.title,
+    description,
+    alternates: {
+      canonical: `/activities/${post.slug}`,
+    },
+    openGraph: {
+      title: post.title,
+      description,
+      url: `/activities/${post.slug}`,
+      type: "article",
+      publishedTime: post.createdAt,
+      images: [
+        {
+          url: post.coverImageUrl,
+          alt: post.title,
+        },
+      ],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: post.title,
+      description,
+      images: [post.coverImageUrl],
+    },
+  };
+}
+
 export default async function ActivityDetailPage(
   props: PageProps<"/activities/[slug]">
 ) {
@@ -30,7 +77,7 @@ export default async function ActivityDetailPage(
   const searchParams = await props.searchParams;
   const post = await getPostBySlug(slug);
 
-  if (!post) {
+  if (!post || !post.published) {
     notFound();
   }
 

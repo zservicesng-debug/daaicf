@@ -1,8 +1,17 @@
 import Link from "next/link";
 import { Lock } from "lucide-react";
+import type { Metadata } from "next";
 import { InvitePasswordForm } from "@/components/portal/invite-password-form";
 import { Card } from "@/components/ui/card";
 import { type PortalRole } from "@/types";
+
+export const metadata: Metadata = {
+  title: "Complete Portal Access",
+  robots: {
+    index: false,
+    follow: false,
+  },
+};
 
 function parseRole(value: unknown): PortalRole {
   return value === "partner" || value === "admin" ? value : "sponsor";

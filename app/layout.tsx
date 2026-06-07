@@ -8,6 +8,7 @@ import {
   FOUNDATION_OPERATING_YEAR,
   FOUNDATION_REGISTERED_YEAR,
 } from "@/lib/foundation";
+import { getAppBaseUrl } from "@/lib/site-url";
 import "./globals.css";
 
 const inter = Inter({
@@ -21,10 +22,13 @@ const playfair = Playfair_Display({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://daaicf.org"),
+  metadataBase: new URL(getAppBaseUrl()),
   title: {
     default: "Dr. Andrew A. Igwe Care Foundation",
     template: "%s | Dr. Andrew A. Igwe Care Foundation",
+  },
+  alternates: {
+    canonical: "/",
   },
   icons: {
     icon: [
@@ -48,8 +52,27 @@ export const metadata: Metadata = {
     title: "Dr. Andrew A. Igwe Care Foundation",
     description:
       `${FOUNDATION_MOTTO} through education, healthcare, infrastructure, relief, and empowerment.`,
+    url: "/",
+    siteName: "Dr. Andrew A. Igwe Care Foundation",
     type: "website",
     locale: "en_NG",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Dr. Andrew A. Igwe Care Foundation",
+    description:
+      `${FOUNDATION_MOTTO} through education, healthcare, infrastructure, relief, and empowerment.`,
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+      "max-video-preview": -1,
+    },
   },
 };
 
