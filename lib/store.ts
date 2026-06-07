@@ -1,6 +1,7 @@
 import "server-only";
 
 import { unstable_noStore as noStore } from "next/cache";
+import { appendSearchParam, appUrl } from "@/lib/email";
 import { resolveConfiguredSocialLinks } from "@/lib/site-config";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import * as mockStore from "@/lib/mock-store";
@@ -2811,6 +2812,9 @@ export async function updateUserProfile(
 }
 
 type PortalAdminClient = NonNullable<ReturnType<typeof createSupabaseAdminClient>>;
+type PortalUserProvisionResult = MockCredentialUser & {
+  inviteLink?: string;
+};
 
 async function findAuthUserByEmail(client: PortalAdminClient, email: string) {
   const { data, error } = await client.auth.admin.listUsers({
@@ -2827,6 +2831,16 @@ async function findAuthUserByEmail(client: PortalAdminClient, email: string) {
   );
 }
 
+function getPortalInviteRedirectTo(role: PortalRole) {
+  const configuredRedirect = process.env.PORTAL_INVITE_REDIRECT_TO;
+  const redirectBase =
+    configuredRedirect && configuredRedirect.includes("/auth/invite")
+      ? configuredRedirect
+      : appUrl("/auth/invite");
+
+  return appendSearchParam(redirectBase, "role", role);
+}
+
 export async function createPortalUser(input: {
   role: PortalRole;
   displayName: string;
@@ -2835,7 +2849,7 @@ export async function createPortalUser(input: {
   orgName?: string;
   status?: "active" | "inactive";
   password?: string;
-}) {
+}): Promise<PortalUserProvisionResult> {
   const mock = maybeUseMock(() => mockStore.createPortalUser(input));
   if (mock !== MOCK_UNSET) {
     return mock;
@@ -2856,6 +2870,8 @@ export async function createPortalUser(input: {
   };
 
   let authUserId = existingAuthUser?.id;
+  let inviteLink: string | undefined;
+  const redirectTo = getPortalInviteRedirectTo(input.role);
 
   if (existingAuthUser) {
     const authPayload: {
@@ -2881,6 +2897,23 @@ export async function createPortalUser(input: {
     if (error) {
       throw error;
     }
+
+    if (!input.password) {
+      const { data: linkData, error: linkError } =
+        await client.auth.admin.generateLink({
+          type: "recovery",
+          email,
+          options: {
+            redirectTo,
+          },
+        });
+
+      if (linkError || !linkData.properties?.action_link) {
+        throw linkError || new Error("Unable to generate portal access link.");
+      }
+
+      inviteLink = linkData.properties.action_link;
+    }
   } else if (input.password) {
     const { data: authData, error } = await client.auth.admin.createUser({
       email,
@@ -2895,19 +2928,21 @@ export async function createPortalUser(input: {
 
     authUserId = authData.user.id;
   } else {
-    const { data: inviteData, error } = await client.auth.admin.inviteUserByEmail(
+    const { data: inviteData, error } = await client.auth.admin.generateLink({
+      type: "invite",
       email,
-      {
+      options: {
         data: userMetadata,
-        redirectTo: process.env.PORTAL_INVITE_REDIRECT_TO || undefined,
-      }
-    );
+        redirectTo,
+      },
+    });
 
-    if (error || !inviteData.user) {
+    if (error || !inviteData.user || !inviteData.properties?.action_link) {
       throw error || new Error("Unable to invite portal user.");
     }
 
     authUserId = inviteData.user.id;
+    inviteLink = inviteData.properties.action_link;
   }
 
   if (!authUserId) {
@@ -2933,7 +2968,8 @@ export async function createPortalUser(input: {
     .single()
     .throwOnError();
 
-  return mapUser(data as UserProfileRow);
+  const profile = mapUser(data as UserProfileRow);
+  return inviteLink ? { ...profile, inviteLink } : profile;
 }
 
 export async function ensureSponsorAccess(userId: string, projectIds: string[]) {

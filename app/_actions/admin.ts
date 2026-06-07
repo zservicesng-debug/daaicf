@@ -3,8 +3,10 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
+import { appUrl, renderEmailLayout } from "@/lib/email";
 import { requireAuthorizedPortalSession } from "@/lib/auth/portal";
 import { setFlashToast } from "@/lib/flash-toast.server";
+import { sendTransactionalEmail } from "@/lib/resend";
 import {
   addGalleryYear,
   addGalleryCollectionMedia,
@@ -33,6 +35,7 @@ import {
   getSponsorApplicationById,
   getUserById,
   isChatRoomMember,
+  listChatRoomsForUser,
   listProjects,
   removeGalleryCollection,
   removeGalleryYear,
@@ -136,6 +139,70 @@ const teamMemberSchema = z.object({
 
 function getActionErrorMessage(error: unknown, fallback: string) {
   return error instanceof Error ? error.message : fallback;
+}
+
+async function ensurePrivatePortalChatRoom(input: {
+  adminUserId: string;
+  linkedUserId: string;
+  role: "sponsor" | "partner";
+  name: string;
+}) {
+  const rooms = await listChatRoomsForUser(input.linkedUserId);
+  const existingRoom = rooms.find(
+    (room) => room.type === input.role && room.linkedUserId === input.linkedUserId
+  );
+
+  if (existingRoom) {
+    return existingRoom;
+  }
+
+  return createChatRoom({
+    name: input.name,
+    type: input.role,
+    createdBy: input.adminUserId,
+    linkedUserId: input.linkedUserId,
+    allowJoinRequests: false,
+  });
+}
+
+async function sendPortalAccessEmail(input: {
+  role: "sponsor" | "partner";
+  displayName: string;
+  orgName?: string;
+  email: string;
+  inviteLink?: string;
+}) {
+  const roleLabel = input.role === "sponsor" ? "Sponsor" : "Partner";
+  const loginPath = input.role === "sponsor" ? "/sponsor/chat" : "/partner/dashboard";
+  const accessLink = input.inviteLink || appUrl(`/${input.role}/login`);
+
+  await sendTransactionalEmail({
+    to: input.email,
+    subject: `Your DAAICF ${roleLabel} Portal Access`,
+    html: renderEmailLayout({
+      title: `${roleLabel} portal access approved`,
+      intro:
+        input.role === "sponsor"
+          ? "Your sponsorship access has been approved. Set your password, then sign in to chat directly with the DAAICF admin team."
+          : "Your partnership access has been approved. Set your password, then sign in to collaborate with the DAAICF admin team.",
+      details: [
+        { label: "Name", value: input.displayName },
+        { label: "Organization", value: input.orgName || "Not provided" },
+        { label: "Login email", value: input.email },
+        { label: "Portal", value: appUrl(loginPath) },
+      ],
+      cta: {
+        label: input.inviteLink ? "Set password and sign in" : "Sign in",
+        href: accessLink,
+      },
+      secondaryCta: {
+        label: "Open portal login",
+        href: appUrl(`/${input.role}/login`),
+      },
+      footer:
+        "For security, keep this email private. If the access link expires, contact the DAAICF admin team for a fresh link.",
+    }),
+  });
 }
 
 function parseGalleryMediaLinks(formData: FormData) {
@@ -424,7 +491,7 @@ export async function deleteHelpApplicationAction(id: string, _formData: FormDat
 }
 
 export async function updateSponsorApplicationAction(formData: FormData) {
-  await requireRole("admin");
+  const adminSession = await requireRole("admin");
   const id = String(formData.get("id") || "");
   const status = String(formData.get("status") || "pending") as
     | "pending"
@@ -440,15 +507,10 @@ export async function updateSponsorApplicationAction(formData: FormData) {
         .filter((projectId) => allowedProjectIds.has(projectId))
     )
   );
-
-  if (status === "approved" && projectIds.length === 0) {
-    await flashAndRedirect(`/admin/applications/sponsors/${id}`, {
-      type: "error",
-      title: "Projects required",
-      description:
-        "Assign at least one active project before approving a sponsor application.",
-    });
-  }
+  const previousSponsorApplication = id
+    ? await getSponsorApplicationById(id)
+    : null;
+  const wasApproved = previousSponsorApplication?.status === "approved";
 
   await updateSponsorApplication(id, { status, projectIds });
 
@@ -463,6 +525,8 @@ export async function updateSponsorApplicationAction(formData: FormData) {
   const application = sponsorApplication!;
 
   const existingUser = await findUserByEmail("sponsor", application.email);
+  const shouldSendAccessEmail =
+    status === "approved" && (!wasApproved || !existingUser || existingUser.status !== "active");
 
   if (status === "approved") {
     const sponsorUser = await createPortalUser({
@@ -475,6 +539,21 @@ export async function updateSponsorApplicationAction(formData: FormData) {
     });
 
     await ensureSponsorAccess(sponsorUser.id, projectIds);
+    await ensurePrivatePortalChatRoom({
+      adminUserId: adminSession.userId,
+      linkedUserId: sponsorUser.id,
+      role: "sponsor",
+      name: `${application.orgName || application.name} - Sponsor Chat`,
+    });
+    if (shouldSendAccessEmail) {
+      await sendPortalAccessEmail({
+        role: "sponsor",
+        displayName: application.name,
+        orgName: application.orgName,
+        email: application.email,
+        inviteLink: sponsorUser.inviteLink,
+      });
+    }
   } else if (existingUser) {
     await ensureSponsorAccess(existingUser.id, []);
     await updateUserProfile(existingUser.id, { status: "inactive" });
@@ -485,6 +564,7 @@ export async function updateSponsorApplicationAction(formData: FormData) {
   revalidatePath("/admin/sponsors");
   revalidatePath("/sponsor/dashboard");
   revalidatePath("/sponsor/projects");
+  revalidatePath("/sponsor/chat");
   await flashAndRedirect(`/admin/applications/sponsors/${id}`, {
     type: "success",
     title: "Sponsor application updated",
@@ -551,7 +631,7 @@ export async function deleteSponsorApplicationAction(
 }
 
 export async function updatePartnerApplicationAction(formData: FormData) {
-  await requireRole("admin");
+  const adminSession = await requireRole("admin");
   const id = String(formData.get("id") || "");
   const status = String(formData.get("status") || "pending") as
     | "pending"
@@ -564,9 +644,13 @@ export async function updatePartnerApplicationAction(formData: FormData) {
         .map(String)
         .filter((permissionKey) =>
           allowedPartnerPermissionKeys.has(permissionKey)
-        )
+      )
     )
   );
+  const previousPartnerApplication = id
+    ? await getPartnerApplicationById(id)
+    : null;
+  const wasApproved = previousPartnerApplication?.status === "approved";
 
   await updatePartnerApplication(id, { status });
 
@@ -581,6 +665,8 @@ export async function updatePartnerApplicationAction(formData: FormData) {
   const application = partnerApplication!;
 
   const existingUser = await findUserByEmail("partner", application.email);
+  const shouldSendAccessEmail =
+    status === "approved" && (!wasApproved || !existingUser || existingUser.status !== "active");
 
   if (status === "approved") {
     const partnerUser = await createPortalUser({
@@ -593,6 +679,21 @@ export async function updatePartnerApplicationAction(formData: FormData) {
     });
 
     await ensurePartnerPermissions(partnerUser.id, permissionKeys);
+    await ensurePrivatePortalChatRoom({
+      adminUserId: adminSession.userId,
+      linkedUserId: partnerUser.id,
+      role: "partner",
+      name: `${application.orgName} - Partner Chat`,
+    });
+    if (shouldSendAccessEmail) {
+      await sendPortalAccessEmail({
+        role: "partner",
+        displayName: application.contactName,
+        orgName: application.orgName,
+        email: application.email,
+        inviteLink: partnerUser.inviteLink,
+      });
+    }
   } else if (existingUser) {
     await ensurePartnerPermissions(existingUser.id, []);
     await updateUserProfile(existingUser.id, { status: "inactive" });

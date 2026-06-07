@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import {
-  FolderKanban,
   LayoutDashboard,
   LogOut,
   Menu,
@@ -19,10 +18,7 @@ import { cn } from "@/lib/utils";
 
 const portalConfig = {
   sponsor: [
-    { href: "/sponsor/dashboard", label: "Dashboard", icon: LayoutDashboard },
-    { href: "/sponsor/projects", label: "Projects", icon: FolderKanban },
     { href: "/sponsor/chat", label: "Chat", icon: MessageSquareMore },
-    { href: "/sponsor/profile", label: "Profile", icon: UserRound },
   ],
   partner: [
     { href: "/partner/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -55,7 +51,7 @@ export function PortalShell({
           </p>
           <p className="mt-1 text-xs text-white/70">
             {role === "sponsor"
-              ? "Assigned project visibility and direct collaboration."
+              ? "Direct private communication with admin."
               : "Approved content access and team communication."}
           </p>
         </div>
@@ -117,7 +113,7 @@ export function PortalShell({
               {role === "sponsor" ? "Sponsor Portal" : "Partner Portal"}
             </p>
             <p className="text-xs muted-copy">
-              {role === "sponsor" ? "Assigned projects" : "Permitted content"}
+              {role === "sponsor" ? "Private chat" : "Permitted content"}
             </p>
           </div>
           <button

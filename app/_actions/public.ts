@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
+import { appUrl, renderEmailLayout } from "@/lib/email";
 import { setFlashToast } from "@/lib/flash-toast.server";
 import {
   addComment,
@@ -100,7 +101,19 @@ export async function submitContactMessage(
   await sendTransactionalEmail({
     to: process.env.ADMIN_EMAIL || "admin@daaicf.org",
     subject: `New Message from ${parsed.data.name}`,
-    html: `<p><strong>${parsed.data.name}</strong> sent a new message.</p><p>${parsed.data.message}</p><p>${parsed.data.email}</p>`,
+    html: renderEmailLayout({
+      title: "New contact message",
+      intro: `${parsed.data.name} sent a new message from the public website.`,
+      details: [
+        { label: "Name", value: parsed.data.name },
+        { label: "Email", value: parsed.data.email },
+        { label: "Message", value: parsed.data.message },
+      ],
+      cta: {
+        label: "Open admin portal",
+        href: appUrl("/admin/dashboard"),
+      },
+    }),
   });
 
   return {
@@ -146,7 +159,7 @@ export async function submitHelpApplication(formData: FormData) {
 
   const evidenceImageFiles = getFileInputs(formData, "evidenceImages");
 
-  await addHelpApplication({
+  const application = await addHelpApplication({
     ...data,
     evidenceImageFiles,
   });
@@ -155,7 +168,27 @@ export async function submitHelpApplication(formData: FormData) {
   await sendTransactionalEmail({
     to: process.env.ADMIN_EMAIL || "admin@daaicf.org",
     subject: `New Help Application from ${data.name}`,
-    html: `<p>A new help application was submitted by <strong>${data.name}</strong>.</p><p>Type: ${data.helpType}</p><p>Location: ${data.location}</p><p>Evidence images: ${evidenceImageFiles.length}</p>`,
+    html: renderEmailLayout({
+      title: "New help application",
+      intro: `${data.name} submitted a help request. The full record is saved in the admin portal.`,
+      details: [
+        { label: "Name", value: data.name },
+        { label: "Phone", value: data.phone },
+        { label: "Location", value: data.location },
+        { label: "Help type", value: data.helpType },
+        { label: "How they heard", value: data.howHeard || "Not provided" },
+        { label: "Evidence images", value: evidenceImageFiles.length },
+        { label: "Description", value: data.description },
+      ],
+      cta: {
+        label: "Review application",
+        href: appUrl(`/admin/applications/${application.id}`),
+      },
+      secondaryCta: {
+        label: "View all help applications",
+        href: appUrl("/admin/applications"),
+      },
+    }),
   });
 
   await flashAndRedirect(
@@ -253,7 +286,7 @@ export async function submitSponsorApplication(formData: FormData) {
     });
   }
 
-  await addSponsorApplication({
+  const application = await addSponsorApplication({
     ...data,
     sectorInterests,
     projectIds,
@@ -263,7 +296,33 @@ export async function submitSponsorApplication(formData: FormData) {
   await sendTransactionalEmail({
     to: process.env.ADMIN_EMAIL || "admin@daaicf.org",
     subject: `New Sponsor Application from ${data.orgName || data.name}`,
-    html: `<p><strong>${data.name}</strong> submitted a sponsor application.</p><p>Preference: ${data.sponsorshipPreference}</p><p>Sectors: ${sectorInterests.length > 0 ? sectorInterests.join(", ") : "General"}</p><p>Requested projects: ${projectIds.length}</p>`,
+    html: renderEmailLayout({
+      title: "New sponsor application",
+      intro: `${data.orgName || data.name} submitted a sponsorship request. Approve it in the portal to create their chat access and send their login link.`,
+      details: [
+        { label: "Name", value: data.name },
+        { label: "Organization", value: data.orgName },
+        { label: "Email", value: data.email },
+        { label: "Phone", value: data.phone },
+        { label: "Applicant type", value: data.applicantType },
+        { label: "Preference", value: data.sponsorshipPreference },
+        {
+          label: "Sectors",
+          value: sectorInterests.length > 0 ? sectorInterests.join(", ") : "General",
+        },
+        { label: "Requested projects", value: projectIds.length },
+        { label: "Budget range", value: data.budgetRange },
+        { label: "Message", value: data.message || "No message" },
+      ],
+      cta: {
+        label: "Review sponsor",
+        href: appUrl(`/admin/applications/sponsors/${application.id}`),
+      },
+      secondaryCta: {
+        label: "View all sponsors",
+        href: appUrl("/admin/applications/sponsors"),
+      },
+    }),
   });
 
   await flashAndRedirect("/apply/sponsor", {
@@ -325,7 +384,7 @@ export async function submitPartnerApplication(formData: FormData) {
     });
   }
 
-  await addPartnerApplication({
+  const application = await addPartnerApplication({
     ...data,
     website: data.website || undefined,
     partnershipInterests: Array.from(new Set(data.partnershipInterests)),
@@ -335,7 +394,28 @@ export async function submitPartnerApplication(formData: FormData) {
   await sendTransactionalEmail({
     to: process.env.ADMIN_EMAIL || "admin@daaicf.org",
     subject: `New Partner Application from ${data.orgName}`,
-    html: `<p><strong>${data.orgName}</strong> submitted a partnership request.</p><p>Interests: ${data.partnershipInterests.join(", ")}</p>`,
+    html: renderEmailLayout({
+      title: "New partner application",
+      intro: `${data.orgName} submitted a partnership request. Review and approve it in the admin portal.`,
+      details: [
+        { label: "Organization", value: data.orgName },
+        { label: "Contact", value: data.contactName },
+        { label: "Email", value: data.email },
+        { label: "Phone", value: data.phone },
+        { label: "Organization type", value: data.orgType },
+        { label: "Website", value: data.website || "Not provided" },
+        { label: "Interests", value: data.partnershipInterests.join(", ") },
+        { label: "Description", value: data.description },
+      ],
+      cta: {
+        label: "Review partner",
+        href: appUrl(`/admin/applications/partners/${application.id}`),
+      },
+      secondaryCta: {
+        label: "View all partners",
+        href: appUrl("/admin/applications/partners"),
+      },
+    }),
   });
 
   await flashAndRedirect("/apply/partner", {

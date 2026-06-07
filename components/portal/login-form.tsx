@@ -72,7 +72,7 @@ export function PortalLoginForm({
 
       <SubmitButton className="rounded-[var(--radius-card)]">
         <Lock className="h-4 w-4" />
-        Sign In to Dashboard
+        {role === "sponsor" ? "Sign In to Chat" : "Sign In to Dashboard"}
       </SubmitButton>
     </form>
   );

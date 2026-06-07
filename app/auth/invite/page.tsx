@@ -1,11 +1,18 @@
 import Link from "next/link";
 import { Lock } from "lucide-react";
-import { PortalLoginForm } from "@/components/portal/login-form";
+import { InvitePasswordForm } from "@/components/portal/invite-password-form";
 import { Card } from "@/components/ui/card";
+import { type PortalRole } from "@/types";
 
-export default async function SponsorLoginPage(props: PageProps<"/sponsor/login">) {
+function parseRole(value: unknown): PortalRole {
+  return value === "partner" || value === "admin" ? value : "sponsor";
+}
+
+export default async function PortalInvitePage(props: {
+  searchParams: Promise<{ role?: string }>;
+}) {
   const searchParams = await props.searchParams;
-  const redirectTo = searchParams.redirectTo as string | undefined;
+  const role = parseRole(searchParams.role);
 
   return (
     <section className="bg-site-gradient flex min-h-screen items-center py-16">
@@ -15,16 +22,18 @@ export default async function SponsorLoginPage(props: PageProps<"/sponsor/login"
             <Lock className="h-7 w-7" />
           </div>
           <h1 className="serif-display mt-5 text-4xl font-bold text-[var(--color-text)]">
-            Sponsor Portal
+            Complete Portal Access
           </h1>
-          <p className="mt-2 muted-copy">Private communication with admin</p>
+          <p className="mt-2 muted-copy">
+            Set your password before signing in.
+          </p>
 
           <Card className="mt-8 p-6 text-left md:p-8">
-            <PortalLoginForm role="sponsor" redirectTo={redirectTo} />
+            <InvitePasswordForm role={role} />
           </Card>
 
-          <Link href="/" className="mt-6 inline-block text-sm muted-copy">
-            Back to website
+          <Link href={`/${role}/login`} className="mt-6 inline-block text-sm muted-copy">
+            Back to login
           </Link>
         </div>
       </div>

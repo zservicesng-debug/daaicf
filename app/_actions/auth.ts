@@ -29,7 +29,7 @@ function defaultRedirect(role: PortalRole) {
     case "admin":
       return "/admin/dashboard";
     case "sponsor":
-      return "/sponsor/dashboard";
+      return "/sponsor/chat";
     case "partner":
       return "/partner/dashboard";
   }

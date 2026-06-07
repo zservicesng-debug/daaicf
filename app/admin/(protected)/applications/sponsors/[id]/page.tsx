@@ -37,8 +37,8 @@ export default async function SponsorApplicationDetailPage(
             Sponsor Application
           </h1>
           <p className="mt-2 muted-copy">
-            Review the sponsorship preference, requested sectors, assign visible
-            projects, or remove the submission.
+            Review the sponsorship preference, approve chat access, optionally
+            assign projects, or remove the submission.
           </p>
         </div>
         <ConfirmActionModal
@@ -77,10 +77,11 @@ export default async function SponsorApplicationDetailPage(
           <TextArea value={application.message || "No message"} readOnly />
           <div className="space-y-3 rounded-[var(--radius-card)] border border-[var(--color-border)] bg-[var(--color-surface-muted)] p-4">
             <p className="text-sm font-semibold text-[var(--color-text)]">
-              Assign visible projects
+              Optional project access
             </p>
             <p className="text-sm muted-copy">
-              Choose at least one active project before approving this sponsor.
+              Approved sponsors can sign in for private chat. Project access can
+              be assigned here if you want to keep internal visibility ready.
             </p>
             {application.sectorInterests.length > 0 ? (
               <p className="text-sm muted-copy">
