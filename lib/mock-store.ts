@@ -838,7 +838,7 @@ function resolveMockGalleryMedia(options: {
     imagePath: link.path || null,
     mediaType: link.type || guessGalleryMediaTypeFromUrl(link.url),
     caption: `${options.title} ${index + 1}`,
-    album: "Health Outreach" as SiteStore["gallery"][number]["album"],
+    album: "Health" as SiteStore["gallery"][number]["album"],
     year: galleryYears[0] || new Date().getFullYear(),
     createdAt: new Date().toISOString(),
   }));
@@ -860,7 +860,7 @@ function resolveMockGalleryMedia(options: {
       imagePath: null,
       mediaType,
       caption: file.name || `${options.title} ${index + 1}`,
-      album: "Health Outreach" as SiteStore["gallery"][number]["album"],
+      album: "Health" as SiteStore["gallery"][number]["album"],
       year: galleryYears[0] || new Date().getFullYear(),
       createdAt: new Date().toISOString(),
     };

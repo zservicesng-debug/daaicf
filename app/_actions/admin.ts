@@ -100,11 +100,15 @@ const allowedPartnerPermissionKeys = new Set([
 const galleryCollectionSchema = z.object({
   title: z.string().trim().min(2).max(120),
   album: z.enum([
-    "Health Outreach",
+    "Health",
     "Education",
     "Empowerment",
     "Events",
-    "Relief",
+    "Infrastructure",
+    "Community Service",
+    "Awards/Recognition",
+    "Partnership",
+    "Scholarship",
   ]),
   year: galleryYearSchema,
 });

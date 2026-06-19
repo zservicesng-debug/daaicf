@@ -3,14 +3,19 @@ import { GalleryLightbox } from "@/components/public/gallery-lightbox";
 import { PageHero } from "@/components/public/page-hero";
 import { Card } from "@/components/ui/card";
 import { listGallery, listGalleryYears } from "@/lib/store";
+import { type GalleryAlbum } from "@/types";
 
-const galleryCategories = [
-  "Health Outreach",
+const galleryCategories: GalleryAlbum[] = [
+  "Health",
   "Education",
   "Empowerment",
   "Events",
-  "Relief",
-] as const;
+  "Infrastructure",
+  "Community Service",
+  "Awards/Recognition",
+  "Partnership",
+  "Scholarship",
+];
 
 export default async function GalleryPage(props: PageProps<"/gallery">) {
   const searchParams = await props.searchParams;

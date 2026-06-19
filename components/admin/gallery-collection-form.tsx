@@ -7,11 +7,15 @@ import { SubmitButton } from "@/components/ui/submit-button";
 import { type GalleryAlbum, type GalleryMediaType } from "@/types";
 
 const albumOptions: GalleryAlbum[] = [
-  "Health Outreach",
+  "Health",
   "Education",
   "Empowerment",
   "Events",
-  "Relief",
+  "Infrastructure",
+  "Community Service",
+  "Awards/Recognition",
+  "Partnership",
+  "Scholarship",
 ];
 
 type UploadedMedia = {
@@ -105,7 +109,7 @@ export function GalleryUploadForm({
       <div className="grid gap-4 md:grid-cols-2">
         <div>
           <label className="mb-2 block text-sm font-semibold">General Category</label>
-          <SelectInput name="album" defaultValue="Health Outreach">
+          <SelectInput name="album" defaultValue="Health">
             {albumOptions.map((album) => (
               <option key={album} value={album}>
                 {album}

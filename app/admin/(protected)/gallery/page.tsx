@@ -14,11 +14,15 @@ import { listGallery, listGalleryYears } from "@/lib/store";
 import { type GalleryAlbum } from "@/types";
 
 const galleryCategories: GalleryAlbum[] = [
-  "Health Outreach",
+  "Health",
   "Education",
   "Empowerment",
   "Events",
-  "Relief",
+  "Infrastructure",
+  "Community Service",
+  "Awards/Recognition",
+  "Partnership",
+  "Scholarship",
 ];
 
 export default async function AdminGalleryPage() {

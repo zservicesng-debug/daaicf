@@ -44,7 +44,6 @@ export function numberLabel(value: number) {
 export function categoryTone(category: PostCategory | GalleryAlbum | HelpType) {
   switch (category) {
     case "Health":
-    case "Health Outreach":
     case "Medical":
       return "bg-[#C41E1E] text-white";
     case "Education":
@@ -63,7 +62,6 @@ export function categoryTone(category: PostCategory | GalleryAlbum | HelpType) {
       return "bg-[#1B6C8D] text-white";
     case "Infrastructure":
       return "bg-[#4D6B73] text-white";
-    case "Relief":
     case "Food/Relief":
       return "bg-[#4A6650] text-white";
     default:

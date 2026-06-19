@@ -16,11 +16,15 @@ export interface SocialLinks {
 }
 
 export type GalleryAlbum =
-  | "Health Outreach"
+  | "Health"
   | "Education"
   | "Empowerment"
   | "Events"
-  | "Relief";
+  | "Infrastructure"
+  | "Community Service"
+  | "Awards/Recognition"
+  | "Partnership"
+  | "Scholarship";
 
 export type GalleryMediaType = "image" | "video";
 
