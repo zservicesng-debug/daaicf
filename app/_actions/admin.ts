@@ -41,6 +41,7 @@ import {
   removeGalleryYear,
   removeGalleryItem,
   updateGalleryCollection,
+  uploadGalleryMedia,
   updateApplicationStatus,
   updateCommentStatus,
   updatePartnerApplication,
@@ -108,6 +109,8 @@ const galleryCollectionSchema = z.object({
   year: galleryYearSchema,
 });
 
+const galleryUploadSchema = galleryCollectionSchema.omit({ title: true });
+
 const galleryMediaLinkSchema = z.object({
   url: z
     .string()
@@ -118,6 +121,12 @@ const galleryMediaLinkSchema = z.object({
       "Use a media link that starts with http:// or https://."
     ),
   type: z.enum(["image", "video"]),
+  path: z
+    .string()
+    .trim()
+    .max(500)
+    .refine((value) => value.startsWith("gallery/"), "Invalid gallery storage path.")
+    .optional(),
 });
 
 const imageLinkSchema = z
@@ -208,7 +217,8 @@ async function sendPortalAccessEmail(input: {
 function parseGalleryMediaLinks(formData: FormData) {
   const urls = formData.getAll("mediaLinks").map((value) => String(value || "").trim());
   const types = formData.getAll("mediaLinkTypes").map((value) => String(value || ""));
-  const parsedLinks: Array<{ url: string; type: GalleryMediaType }> = [];
+  const paths = formData.getAll("mediaPaths").map((value) => String(value || "").trim());
+  const parsedLinks: Array<{ url: string; type: GalleryMediaType; path?: string }> = [];
 
   for (const [index, url] of urls.entries()) {
     if (!url) {
@@ -218,6 +228,7 @@ function parseGalleryMediaLinks(formData: FormData) {
     const parsed = galleryMediaLinkSchema.safeParse({
       url,
       type: types[index] || "image",
+      path: paths[index] || undefined,
     });
 
     if (!parsed.success) {
@@ -946,7 +957,7 @@ export async function createGalleryCollectionAction(formData: FormData) {
     });
   }
 
-  let mediaLinks: Array<{ url: string; type: GalleryMediaType }> = [];
+  let mediaLinks: Array<{ url: string; type: GalleryMediaType; path?: string }> = [];
   try {
     mediaLinks = parseGalleryMediaLinks(formData);
   } catch (error) {
@@ -992,6 +1003,67 @@ export async function createGalleryCollectionAction(formData: FormData) {
           : "We could not create that gallery collection right now.",
     });
   }
+}
+
+export async function uploadGalleryMediaAction(formData: FormData) {
+  await requireRole("admin");
+  const parsed = galleryUploadSchema.safeParse({
+    album: formData.get("album"),
+    year: formData.get("year"),
+  });
+
+  if (!parsed.success) {
+    return flashAndRedirect("/admin/gallery", {
+      type: "error",
+      title: "Gallery not updated",
+      description:
+        parsed.error.issues[0]?.message || "Choose a valid category and year.",
+    });
+  }
+
+  let mediaLinks: Array<{ url: string; type: GalleryMediaType; path?: string }> = [];
+  try {
+    mediaLinks = parseGalleryMediaLinks(formData);
+  } catch (error) {
+    await flashAndRedirect("/admin/gallery", {
+      type: "error",
+      title: "Gallery not updated",
+      description: getActionErrorMessage(error, "The uploaded media links are invalid."),
+    });
+  }
+
+  if (mediaLinks.length === 0) {
+    await flashAndRedirect("/admin/gallery", {
+      type: "error",
+      title: "Media required",
+      description: "Choose at least one image or video before publishing.",
+    });
+  }
+
+  try {
+    await uploadGalleryMedia({
+      album: parsed.data.album,
+      year: parsed.data.year,
+      mediaLinks,
+    });
+  } catch (error) {
+    await flashAndRedirect("/admin/gallery", {
+      type: "error",
+      title: "Gallery not updated",
+      description: getActionErrorMessage(
+        error,
+        "We could not publish that media batch right now."
+      ),
+    });
+  }
+
+  revalidatePath("/admin/gallery");
+  revalidatePath("/gallery");
+  await flashAndRedirect("/admin/gallery", {
+    type: "success",
+    title: "Gallery media published",
+    description: `${mediaLinks.length} media item${mediaLinks.length === 1 ? "" : "s"} added to ${parsed.data.album} for ${parsed.data.year}.`,
+  });
 }
 
 export async function deleteGalleryItemAction(
@@ -1094,7 +1166,7 @@ export async function addGalleryCollectionMediaAction(
   await requireRole("admin");
   const mediaFiles = getFileInputs(formData, "mediaFiles");
 
-  let mediaLinks: Array<{ url: string; type: GalleryMediaType }> = [];
+  let mediaLinks: Array<{ url: string; type: GalleryMediaType; path?: string }> = [];
   try {
     mediaLinks = parseGalleryMediaLinks(formData);
   } catch (error) {

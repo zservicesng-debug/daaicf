@@ -882,6 +882,7 @@ function detectGalleryMediaTypeFromFile(file: File): GalleryMediaType {
 type GalleryLinkInput = {
   url: string;
   type: GalleryMediaType;
+  path?: string;
 };
 
 type ResolvedGalleryMediaInput = {
@@ -903,7 +904,7 @@ async function resolveGalleryMediaInputs(options: {
   for (const [index, link] of mediaLinks.entries()) {
     uploads.push({
       imageUrl: link.url.trim(),
-      imagePath: null,
+      imagePath: link.path || null,
       mediaType: link.type || guessGalleryMediaTypeFromUrl(link.url),
       caption: `${options.title} ${index + 1}`,
     });
@@ -1589,6 +1590,70 @@ export async function createGalleryCollection(input: {
     .throwOnError();
 
   return mapGalleryCollections((data as GalleryRow[]).map(mapGallery))[0];
+}
+
+export async function uploadGalleryMedia(input: {
+  album: SiteStore["gallery"][number]["album"];
+  year: number;
+  mediaLinks: GalleryLinkInput[];
+}) {
+  const mock = maybeUseMock(() => mockStore.uploadGalleryMedia(input));
+  if (mock !== MOCK_UNSET) {
+    return mock;
+  }
+
+  const client = getAdminClient();
+  if (!client) {
+    return mockStore.uploadGalleryMedia(input);
+  }
+
+  const yearExists = await galleryYearExists(input.year);
+  if (!yearExists) {
+    throw new Error(
+      `Gallery year ${input.year} is not available yet. Add the year first, then upload the media.`
+    );
+  }
+
+  if (input.mediaLinks.length === 0) {
+    throw new Error("Choose at least one image or video before publishing.");
+  }
+
+  const { data: existing } = await client
+    .from("gallery_images")
+    .select("collection_id")
+    .eq("album", input.album)
+    .eq("gallery_year", input.year)
+    .order("created_at", { ascending: true })
+    .limit(1)
+    .maybeSingle()
+    .throwOnError();
+
+  const collectionId =
+    (existing?.collection_id as string | undefined) || crypto.randomUUID();
+  const internalLabel = `${input.album} ${input.year}`;
+  const media = await resolveGalleryMediaInputs({
+    title: internalLabel,
+    mediaLinks: input.mediaLinks,
+  });
+
+  const { data } = await client
+    .from("gallery_images")
+    .insert(
+      media.map((item) => ({
+        image_url: item.imageUrl,
+        image_path: item.imagePath,
+        caption: "",
+        collection_id: collectionId,
+        collection_title: internalLabel,
+        media_type: item.mediaType,
+        album: input.album,
+        gallery_year: input.year,
+      }))
+    )
+    .select("*")
+    .throwOnError();
+
+  return (data as GalleryRow[]).map(mapGallery);
 }
 
 export async function updateGalleryCollection(

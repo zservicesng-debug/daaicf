@@ -825,7 +825,7 @@ export function getGalleryCollectionById(collectionId: string) {
 function resolveMockGalleryMedia(options: {
   title: string;
   mediaFiles?: File[];
-  mediaLinks?: Array<{ url: string; type: GalleryMediaType }>;
+  mediaLinks?: Array<{ url: string; type: GalleryMediaType; path?: string }>;
 }) {
   const mediaFiles = options.mediaFiles || [];
   const mediaLinks = options.mediaLinks || [];
@@ -835,7 +835,7 @@ function resolveMockGalleryMedia(options: {
     collectionId: "",
     collectionTitle: options.title,
     imageUrl: link.url.trim(),
-    imagePath: null,
+    imagePath: link.path || null,
     mediaType: link.type || guessGalleryMediaTypeFromUrl(link.url),
     caption: `${options.title} ${index + 1}`,
     album: "Health Outreach" as SiteStore["gallery"][number]["album"],
@@ -901,6 +901,41 @@ export function createGalleryCollection(input: {
 
   store.gallery.unshift(...media);
   return structuredClone(mapGalleryCollections(media)[0]);
+}
+
+export function uploadGalleryMedia(input: {
+  album: SiteStore["gallery"][number]["album"];
+  year: number;
+  mediaLinks: Array<{ url: string; type: GalleryMediaType; path?: string }>;
+}) {
+  if (!galleryYears.includes(input.year)) {
+    throw new Error(
+      `Gallery year ${input.year} is not available yet. Add the year first, then upload the media.`
+    );
+  }
+
+  const existing = store.gallery.find(
+    (item) => item.album === input.album && item.year === input.year
+  );
+  const collectionId = existing?.collectionId || crypto.randomUUID();
+  const internalLabel = `${input.album} ${input.year}`;
+  const media = resolveMockGalleryMedia({
+    title: internalLabel,
+    mediaLinks: input.mediaLinks,
+  }).map((item) => ({
+    ...item,
+    collectionId,
+    collectionTitle: internalLabel,
+    album: input.album,
+    year: input.year,
+  }));
+
+  if (media.length === 0) {
+    throw new Error("Choose at least one image or video before publishing.");
+  }
+
+  store.gallery.unshift(...media);
+  return structuredClone(media);
 }
 
 export function updateGalleryCollection(

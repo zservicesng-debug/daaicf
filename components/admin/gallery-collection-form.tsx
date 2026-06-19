@@ -1,18 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, Trash2 } from "lucide-react";
-import { buttonClasses } from "@/components/ui/button";
+import { Film, Images, Upload } from "lucide-react";
 import { SelectInput, TextInput } from "@/components/ui/field";
 import { SubmitButton } from "@/components/ui/submit-button";
-import { cn } from "@/lib/utils";
 import { type GalleryAlbum, type GalleryMediaType } from "@/types";
-
-type MediaLinkRow = {
-  id: string;
-  type: GalleryMediaType;
-  url: string;
-};
 
 const albumOptions: GalleryAlbum[] = [
   "Health Outreach",
@@ -22,166 +14,166 @@ const albumOptions: GalleryAlbum[] = [
   "Relief",
 ];
 
-function createLinkRow(): MediaLinkRow {
-  return {
-    id: crypto.randomUUID(),
-    type: "image",
-    url: "",
-  };
-}
+type UploadedMedia = {
+  url: string;
+  path: string;
+  type: GalleryMediaType;
+};
 
-export function GalleryCollectionForm({
+export function GalleryUploadForm({
   action,
   galleryYears,
-  submitLabel,
-  mode,
-  initialTitle,
-  initialAlbum = "Health Outreach",
   initialYear,
 }: {
   action: (formData: FormData) => void | Promise<void>;
   galleryYears: number[];
-  submitLabel: string;
-  mode: "create" | "append";
-  initialTitle?: string;
-  initialAlbum?: GalleryAlbum;
   initialYear?: number;
 }) {
-  const [links, setLinks] = useState<MediaLinkRow[]>([createLinkRow()]);
+  const [files, setFiles] = useState<File[]>([]);
+  const [uploadError, setUploadError] = useState("");
+
+  const imageCount = files.filter((file) => file.type.startsWith("image/")).length;
+  const videoCount = files.filter((file) => file.type.startsWith("video/")).length;
+
+  async function publishBatch(formData: FormData) {
+    setUploadError("");
+
+    if (files.length === 0) {
+      setUploadError("Choose at least one image or video before publishing.");
+      return;
+    }
+
+    let uploaded: UploadedMedia[];
+    try {
+      uploaded = [];
+      for (let start = 0; start < files.length; start += 3) {
+        const batch = files.slice(start, start + 3);
+        const completed = await Promise.all(
+          batch.map(async (file) => {
+            const uploadData = new FormData();
+            uploadData.set("file", file);
+            uploadData.set("folder", "gallery");
+
+            const response = await fetch("/api/admin/uploads", {
+              method: "POST",
+              body: uploadData,
+            });
+            const result = (await response.json()) as {
+              url?: string;
+              path?: string;
+              error?: string;
+            };
+
+            if (!response.ok || !result.url || !result.path) {
+              throw new Error(result.error || `Could not upload ${file.name}.`);
+            }
+
+            return {
+              url: result.url,
+              path: result.path,
+              type: file.type.startsWith("video/") ? "video" : "image",
+            } satisfies UploadedMedia;
+          })
+        );
+        uploaded.push(...completed);
+      }
+    } catch (error) {
+      setUploadError(
+        error instanceof Error ? error.message : "The media batch could not be uploaded."
+      );
+      return;
+    }
+
+    const publishData = new FormData();
+    publishData.set("album", String(formData.get("album") || ""));
+    publishData.set("year", String(formData.get("year") || ""));
+    uploaded.forEach((item) => {
+      publishData.append("mediaLinks", item.url);
+      publishData.append("mediaLinkTypes", item.type);
+      publishData.append("mediaPaths", item.path);
+    });
+
+    await action(publishData);
+  }
 
   return (
     <form
-      action={action}
+      action={publishBatch}
       className="space-y-5"
-      data-submit-toast-title={submitLabel}
+      data-submit-toast-title="Publishing gallery media"
     >
-      {mode === "create" ? (
-        <>
-          <div>
-            <label className="mb-2 block text-sm font-semibold">Collection Title</label>
-            <TextInput
-              name="title"
-              defaultValue={initialTitle}
-              placeholder="e.g. 2026 Health Outreach in Owerri"
-              required
-            />
-          </div>
-
-          <div className="grid gap-4 md:grid-cols-2">
-            <div>
-              <label className="mb-2 block text-sm font-semibold">Category</label>
-              <SelectInput name="album" defaultValue={initialAlbum}>
-                {albumOptions.map((album) => (
-                  <option key={album} value={album}>
-                    {album}
-                  </option>
-                ))}
-              </SelectInput>
-            </div>
-            <div>
-              <label className="mb-2 block text-sm font-semibold">Year</label>
-              <SelectInput
-                name="year"
-                defaultValue={initialYear ? String(initialYear) : String(galleryYears[0] || "")}
-              >
-                {galleryYears.map((year) => (
-                  <option key={year} value={year}>
-                    {year}
-                  </option>
-                ))}
-              </SelectInput>
-            </div>
-          </div>
-        </>
-      ) : null}
-
-      <div className="space-y-3 rounded-[var(--radius-card)] border border-[var(--color-border)] bg-[var(--color-surface-muted)] p-4">
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <p className="text-sm font-semibold text-[var(--color-text)]">Paste media links</p>
-            <p className="mt-1 text-sm muted-copy">
-              Add direct image or video URLs one by one, then upload them together.
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={() => setLinks((current) => [...current, createLinkRow()])}
-            className={cn(buttonClasses({ variant: "surface", fullWidth: false }), "px-4 py-2 text-xs")}
-          >
-            <Plus className="h-4 w-4" />
-            Add Link
-          </button>
+      <div className="grid gap-4 md:grid-cols-2">
+        <div>
+          <label className="mb-2 block text-sm font-semibold">General Category</label>
+          <SelectInput name="album" defaultValue="Health Outreach">
+            {albumOptions.map((album) => (
+              <option key={album} value={album}>
+                {album}
+              </option>
+            ))}
+          </SelectInput>
         </div>
-
-        <div className="space-y-3">
-          {links.map((link, index) => (
-            <div key={link.id} className="grid gap-3 md:grid-cols-[150px_1fr_auto]">
-              <SelectInput
-                name="mediaLinkTypes"
-                value={link.type}
-                onChange={(event) => {
-                  const value = event.target.value as GalleryMediaType;
-                  setLinks((current) =>
-                    current.map((item) =>
-                      item.id === link.id ? { ...item, type: value } : item
-                    )
-                  );
-                }}
-              >
-                <option value="image">Image link</option>
-                <option value="video">Video link</option>
-              </SelectInput>
-              <TextInput
-                name="mediaLinks"
-                type="url"
-                value={link.url}
-                onChange={(event) => {
-                  const value = event.target.value;
-                  setLinks((current) =>
-                    current.map((item) =>
-                      item.id === link.id ? { ...item, url: value } : item
-                    )
-                  );
-                }}
-                placeholder={
-                  link.type === "video"
-                    ? "https://example.com/video.mp4"
-                    : "https://example.com/photo.jpg"
-                }
-              />
-              <button
-                type="button"
-                onClick={() =>
-                  setLinks((current) =>
-                    current.length === 1
-                      ? [{ ...current[0], url: "", type: "image" }]
-                      : current.filter((item) => item.id !== link.id)
-                  )
-                }
-                className={cn(
-                  buttonClasses({ variant: "danger", fullWidth: false }),
-                  "px-3 py-2"
-                )}
-                aria-label={`Remove media link ${index + 1}`}
-              >
-                <Trash2 className="h-4 w-4" />
-              </button>
-            </div>
-          ))}
+        <div>
+          <label className="mb-2 block text-sm font-semibold">Year</label>
+          <SelectInput
+            name="year"
+            defaultValue={initialYear ? String(initialYear) : String(galleryYears[0] || "")}
+          >
+            {galleryYears.map((year) => (
+              <option key={year} value={year}>
+                {year}
+              </option>
+            ))}
+          </SelectInput>
         </div>
       </div>
 
       <div>
         <label className="mb-2 block text-sm font-semibold">
-          Upload image or video files
+          Images and videos
         </label>
-        <TextInput name="mediaFiles" type="file" accept="image/*,video/*" multiple />
+        <TextInput
+          name="mediaFiles"
+          type="file"
+          accept="image/*,video/*"
+          multiple
+          required
+          onChange={(event) => {
+            setUploadError("");
+            setFiles(Array.from(event.target.files || []));
+          }}
+        />
         <p className="mt-2 text-sm muted-copy">
-          You can combine direct links and uploaded files in the same collection.
+          Select many files at once. They will all be published to the chosen category
+          and year; no individual title is needed.
         </p>
       </div>
 
-      <SubmitButton>{submitLabel}</SubmitButton>
+      {files.length > 0 ? (
+        <div className="flex flex-wrap gap-3 rounded-[var(--radius-card)] border border-[var(--color-border)] bg-[var(--color-surface-muted)] p-4 text-sm">
+          <span className="inline-flex items-center gap-2 font-semibold text-[var(--color-text)]">
+            <Upload className="h-4 w-4" /> {files.length} selected
+          </span>
+          {imageCount > 0 ? (
+            <span className="inline-flex items-center gap-2 muted-copy">
+              <Images className="h-4 w-4" /> {imageCount} image{imageCount === 1 ? "" : "s"}
+            </span>
+          ) : null}
+          {videoCount > 0 ? (
+            <span className="inline-flex items-center gap-2 muted-copy">
+              <Film className="h-4 w-4" /> {videoCount} video{videoCount === 1 ? "" : "s"}
+            </span>
+          ) : null}
+        </div>
+      ) : null}
+
+      {uploadError ? (
+        <p role="alert" className="text-sm font-medium text-[var(--color-accent)]">
+          {uploadError}
+        </p>
+      ) : null}
+
+      <SubmitButton>Publish Media</SubmitButton>
     </form>
   );
 }
