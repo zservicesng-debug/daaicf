@@ -38,7 +38,7 @@ const commentSchema = z.object({
   postId: z.string().min(1),
   postSlug: z.string().min(1),
   authorName: z.string().min(2, "Please enter your name."),
-  authorEmail: z.string().email("Enter a valid email address.").optional().or(z.literal("")),
+  authorEmail: z.string().email("Enter a valid email address."),
   message: z.string().optional(),
 });
 
@@ -50,6 +50,7 @@ export async function submitComment(
     postId: formData.get("postId"),
     postSlug: formData.get("postSlug"),
     authorName: formData.get("authorName"),
+    authorEmail: formData.get("authorEmail"),
     message: formData.get("message") || "Interested in this activity.",
   });
 
@@ -69,7 +70,7 @@ export async function submitComment(
   revalidatePath("/activities");
   revalidatePath(`/activities/${parsed.data.postSlug}`);
 
-  await sendTransactionalEmail({
+  const notification = await sendTransactionalEmail({
     to: getNotificationEmails(),
     subject: `New Comment from ${parsed.data.authorName}`,
     html: renderEmailLayout({
@@ -77,7 +78,7 @@ export async function submitComment(
       intro: `${parsed.data.authorName} left a comment that is awaiting review.`,
       details: [
         { label: "Name", value: parsed.data.authorName },
-        { label: "Email", value: parsed.data.authorEmail || "Not provided" },
+        { label: "Email", value: parsed.data.authorEmail },
         {
           label: "Comment",
           value: parsed.data.message || "Interested in this activity.",
@@ -89,6 +90,10 @@ export async function submitComment(
       },
     }),
   });
+
+  if (!notification.delivered) {
+    console.error("Comment notification email was not delivered:", notification.reason);
+  }
 
   return {
     status: "success" as const,
@@ -447,4 +452,3 @@ export async function submitPartnerApplication(formData: FormData) {
     description: "We have received your proposal and will be in touch after review.",
   });
 }
-

@@ -41,7 +41,12 @@ export function QuickCommentForm({
       <input type="hidden" name="postId" value={postId} />
       <input type="hidden" name="postSlug" value={postSlug} />
       <TextInput name="authorName" placeholder="Your name" required />
-      <TextInput name="authorEmail" type="email" placeholder="Your email (optional)" />
+      <TextInput
+        name="authorEmail"
+        type="email"
+        placeholder="Your email"
+        required
+      />
       <SubmitButton className="py-2!" fullWidth={false}>
         Post
       </SubmitButton>
@@ -87,9 +92,9 @@ export function FullCommentForm({
       </div>
       <div>
         <label htmlFor="authorEmail" className="mb-2 block text-sm font-semibold">
-          Email <span className="font-normal text-(--color-muted)">(optional)</span>
+          Email
         </label>
-        <TextInput id="authorEmail" name="authorEmail" type="email" />
+        <TextInput id="authorEmail" name="authorEmail" type="email" required />
       </div>
       <div>
         <label htmlFor="message" className="mb-2 block text-sm font-semibold">
