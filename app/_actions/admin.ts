@@ -70,6 +70,8 @@ async function flashAndRedirect(
   redirect(path);
 }
 
+const galleryYearSchema = z.coerce.number().int().min(1900).max(2100);
+
 const postSchema = z.object({
   existingSlug: z.string().optional(),
   title: z.string().min(3),
@@ -86,9 +88,8 @@ const postSchema = z.object({
   ]),
   content: z.string().min(20),
   published: z.enum(["draft", "published"]),
+  galleryYear: galleryYearSchema.optional(),
 });
-
-const galleryYearSchema = z.coerce.number().int().min(1900).max(2100);
 
 const allowedPartnerPermissionKeys = new Set([
   "public.posts",
@@ -278,6 +279,7 @@ export async function savePostAction(formData: FormData) {
     category: formData.get("category"),
     content: formData.get("content"),
     published: formData.get("published"),
+    galleryYear: formData.get("galleryYear") || undefined,
   });
 
   const data = parsed.success ? parsed.data : null;
@@ -349,6 +351,7 @@ export async function savePostAction(formData: FormData) {
     galleryImageFiles,
     galleryImageLinks,
     clearGalleryImages: formData.get("clearGalleryImages") === "on",
+    galleryYear: data.galleryYear ?? null,
     published: data.published === "published",
     showOnHome: false,
   };
@@ -361,6 +364,8 @@ export async function savePostAction(formData: FormData) {
 
   revalidatePath("/admin/posts");
   revalidatePath("/activities");
+  revalidatePath("/admin/gallery");
+  revalidatePath("/gallery");
   revalidatePath("/");
   await flashAndRedirect("/admin/posts", {
     type: "success",

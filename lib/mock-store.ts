@@ -642,6 +642,41 @@ export function getPostBySlug(slug: string) {
   return post ? structuredClone(post) : null;
 }
 
+function syncMockPostGallery(post: Post) {
+  store.gallery = store.gallery.filter((item) => item.sourcePostId !== post.id);
+
+  if (!post.galleryYear) {
+    return;
+  }
+
+  if (!galleryYears.includes(post.galleryYear)) {
+    galleryYears = [...galleryYears, post.galleryYear].sort(
+      (left, right) => right - left
+    );
+  }
+
+  const imageUrls = Array.from(
+    new Set([post.coverImageUrl, ...post.galleryImageUrls].filter(Boolean))
+  );
+  const createdAt = new Date().toISOString();
+
+  store.gallery.unshift(
+    ...imageUrls.map((imageUrl, index) => ({
+      id: crypto.randomUUID(),
+      collectionId: post.id,
+      collectionTitle: post.title,
+      imageUrl,
+      imagePath: null,
+      mediaType: "image" as const,
+      caption: post.title,
+      album: post.category,
+      year: post.galleryYear!,
+      sourcePostId: post.id,
+      createdAt: new Date(Date.parse(createdAt) + index).toISOString(),
+    }))
+  );
+}
+
 export function createPost(input: {
   title: string;
   category: Post["category"];
@@ -654,6 +689,7 @@ export function createPost(input: {
   coverImageLink?: string;
   galleryImageFiles?: File[];
   galleryImageLinks?: string[];
+  galleryYear?: number | null;
 }) {
   const title = input.title.trim();
   const slug = slugify(title);
@@ -691,12 +727,14 @@ export function createPost(input: {
           })),
     galleryImageUrls,
     galleryImagePaths: [],
+    galleryYear: input.galleryYear ?? null,
     published: input.published,
     showOnHome: input.showOnHome,
     createdAt: new Date().toISOString(),
   };
 
   store.posts.unshift(post);
+  syncMockPostGallery(post);
   return structuredClone(post);
 }
 
@@ -715,6 +753,7 @@ export function updatePost(
     galleryImageFiles?: File[];
     galleryImageLinks?: string[];
     clearGalleryImages?: boolean;
+    galleryYear?: number | null;
   }
 ) {
   const index = store.posts.findIndex((item) => item.slug === slug);
@@ -766,8 +805,10 @@ export function updatePost(
         ? [...existingGalleryImageUrls, ...nextGalleryImageUrls]
         : existingGalleryImageUrls,
     galleryImagePaths: [],
+    galleryYear: input.galleryYear ?? null,
   };
 
+  syncMockPostGallery(store.posts[index]);
   return structuredClone(store.posts[index]);
 }
 
@@ -778,6 +819,7 @@ export function deletePost(slug: string) {
   }
   store.posts = store.posts.filter((item) => item.slug !== slug);
   store.comments = store.comments.filter((item) => item.postId !== target.id);
+  store.gallery = store.gallery.filter((item) => item.sourcePostId !== target.id);
 }
 
 export function listGallery(options?: {

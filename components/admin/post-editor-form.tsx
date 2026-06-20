@@ -253,7 +253,7 @@ export function PostEditorForm({
         <TextInput name="title" defaultValue={post?.title} required />
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="grid gap-4 md:grid-cols-3">
         <div>
           <label className="mb-2 block text-sm font-semibold">Slug</label>
           <TextInput defaultValue={post?.slug} disabled />
@@ -277,6 +277,22 @@ export function PostEditorForm({
             <option value="Partnership">Partnership</option>
             <option value="Scholarship">Scholarship</option>
           </SelectInput>
+        </div>
+        <div>
+          <label className="mb-2 block text-sm font-semibold">
+            Gallery Year <span className="font-normal muted-copy">(optional)</span>
+          </label>
+          <TextInput
+            name="galleryYear"
+            type="number"
+            min={1900}
+            max={2100}
+            defaultValue={post?.galleryYear || ""}
+            placeholder={String(new Date().getFullYear())}
+          />
+          <p className="mt-2 text-sm muted-copy">
+            Adds the cover and extra photos to this year in the gallery.
+          </p>
         </div>
       </div>
 

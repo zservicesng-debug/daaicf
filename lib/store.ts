@@ -52,6 +52,7 @@ type PostRow = {
   cover_image_path: string | null;
   gallery_image_urls: string[] | null;
   gallery_image_paths: string[] | null;
+  gallery_year: number | null;
   published: boolean;
   show_on_home: boolean;
   created_at: string;
@@ -67,6 +68,7 @@ type GalleryRow = {
   caption: string;
   album: GalleryImage["album"];
   gallery_year: number;
+  source_post_id: string | null;
   created_at: string;
 };
 
@@ -268,6 +270,7 @@ function mapPost(row: PostRow): Post {
     coverImagePath: row.cover_image_path,
     galleryImageUrls: row.gallery_image_urls || [],
     galleryImagePaths: row.gallery_image_paths || [],
+    galleryYear: row.gallery_year,
     published: row.published,
     showOnHome: row.show_on_home,
     createdAt: row.created_at,
@@ -285,6 +288,7 @@ function mapGallery(row: GalleryRow): GalleryImage {
     caption: row.caption,
     album: row.album,
     year: row.gallery_year,
+    sourcePostId: row.source_post_id,
     createdAt: row.created_at,
   };
 }
@@ -1202,6 +1206,7 @@ export async function createPost(input: {
   coverImageLink?: string;
   galleryImageFiles?: File[];
   galleryImageLinks?: string[];
+  galleryYear?: number | null;
 }) {
   const mock = maybeUseMock(() =>
     mockStore.createPost({
@@ -1216,6 +1221,7 @@ export async function createPost(input: {
       coverImageLink: input.coverImageLink,
       galleryImageFiles: input.galleryImageFiles,
       galleryImageLinks: input.galleryImageLinks,
+      galleryYear: input.galleryYear,
     })
   );
   if (mock !== MOCK_UNSET) {
@@ -1236,6 +1242,7 @@ export async function createPost(input: {
       coverImageLink: input.coverImageLink,
       galleryImageFiles: input.galleryImageFiles,
       galleryImageLinks: input.galleryImageLinks,
+      galleryYear: input.galleryYear,
     });
   }
 
@@ -1269,6 +1276,7 @@ export async function createPost(input: {
       cover_image_path: image.coverImagePath,
       gallery_image_urls: gallery.galleryImageUrls,
       gallery_image_paths: gallery.galleryImagePaths,
+      gallery_year: input.galleryYear ?? null,
       published: input.published,
       show_on_home: input.showOnHome,
     })
@@ -1294,6 +1302,7 @@ export async function updatePost(
     galleryImageFiles?: File[];
     galleryImageLinks?: string[];
     clearGalleryImages?: boolean;
+    galleryYear?: number | null;
   }
 ) {
   const mock = maybeUseMock(() =>
@@ -1310,6 +1319,7 @@ export async function updatePost(
       galleryImageFiles: input.galleryImageFiles,
       galleryImageLinks: input.galleryImageLinks,
       clearGalleryImages: input.clearGalleryImages,
+      galleryYear: input.galleryYear,
     })
   );
   if (mock !== MOCK_UNSET) {
@@ -1331,6 +1341,7 @@ export async function updatePost(
       galleryImageFiles: input.galleryImageFiles,
       galleryImageLinks: input.galleryImageLinks,
       clearGalleryImages: input.clearGalleryImages,
+      galleryYear: input.galleryYear,
     });
   }
 
@@ -1380,6 +1391,7 @@ export async function updatePost(
       cover_image_path: image.coverImagePath,
       gallery_image_urls: gallery.galleryImageUrls,
       gallery_image_paths: gallery.galleryImagePaths,
+      gallery_year: input.galleryYear ?? null,
       published: input.published,
       show_on_home: input.showOnHome,
     })
@@ -1788,7 +1800,7 @@ export async function removeGalleryItem(id: string) {
 
   const { data: existing } = await client
     .from("gallery_images")
-    .select("id, image_path, collection_id")
+    .select("id, image_path, collection_id, source_post_id")
     .eq("id", id)
     .maybeSingle()
     .throwOnError();
@@ -1798,7 +1810,9 @@ export async function removeGalleryItem(id: string) {
   }
 
   await client.from("gallery_images").delete().eq("id", id).throwOnError();
-  await removeStorageFile(existing.image_path as string | null);
+  if (!existing.source_post_id) {
+    await removeStorageFile(existing.image_path as string | null);
+  }
 
   const { count } = await client
     .from("gallery_images")
@@ -1826,11 +1840,16 @@ export async function removeGalleryCollection(collectionId: string) {
 
   const { data } = await client
     .from("gallery_images")
-    .select("id, image_path")
+    .select("id, image_path, source_post_id")
     .eq("collection_id", collectionId)
     .throwOnError();
 
-  const rows = (data as Array<{ id: string; image_path: string | null }>) || [];
+  const rows =
+    (data as Array<{
+      id: string;
+      image_path: string | null;
+      source_post_id: string | null;
+    }>) || [];
   if (rows.length === 0) {
     return;
   }
@@ -1840,7 +1859,12 @@ export async function removeGalleryCollection(collectionId: string) {
     .delete()
     .eq("collection_id", collectionId)
     .throwOnError();
-  await removeStorageFiles(rows.map((row) => row.image_path).filter(Boolean) as string[]);
+  await removeStorageFiles(
+    rows
+      .filter((row) => !row.source_post_id)
+      .map((row) => row.image_path)
+      .filter(Boolean) as string[]
+  );
 }
 
 export async function removeGalleryYear(year: number) {

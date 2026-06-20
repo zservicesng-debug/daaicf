@@ -73,6 +73,7 @@ export interface Post {
   coverImagePath?: string | null;
   galleryImageUrls: string[];
   galleryImagePaths: string[];
+  galleryYear?: number | null;
   published: boolean;
   showOnHome: boolean;
   createdAt: string;
@@ -88,6 +89,7 @@ export interface GalleryImage {
   caption: string;
   album: GalleryAlbum;
   year: number;
+  sourcePostId?: string | null;
   createdAt: string;
 }
 
