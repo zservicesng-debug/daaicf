@@ -689,12 +689,14 @@ export function createPost(input: {
   coverImageLink?: string;
   galleryImageFiles?: File[];
   galleryImageLinks?: string[];
+  galleryUploadedImages?: Array<{ url: string; path: string }>;
   galleryYear?: number | null;
 }) {
   const title = input.title.trim();
   const slug = slugify(title);
   const galleryImageUrls = [
     ...((input.galleryImageLinks || []).map((url) => url.trim()).filter(Boolean)),
+    ...(input.galleryUploadedImages || []).map((item) => item.url),
     ...(input.galleryImageFiles || []).map((_, index) =>
       createPlaceholderImage({
         title: `${title} ${index + 1}`,
@@ -726,7 +728,7 @@ export function createPost(input: {
             accent: input.category === "Health" ? "#C41E1E" : "#1A5C2A",
           })),
     galleryImageUrls,
-    galleryImagePaths: [],
+    galleryImagePaths: (input.galleryUploadedImages || []).map((item) => item.path),
     galleryYear: input.galleryYear ?? null,
     published: input.published,
     showOnHome: input.showOnHome,
@@ -752,6 +754,7 @@ export function updatePost(
     coverImageLink?: string;
     galleryImageFiles?: File[];
     galleryImageLinks?: string[];
+    galleryUploadedImages?: Array<{ url: string; path: string }>;
     clearGalleryImages?: boolean;
     galleryYear?: number | null;
   }
@@ -764,6 +767,7 @@ export function updatePost(
   const nextSlug = slugify(input.title);
   const nextGalleryImageUrls = [
     ...((input.galleryImageLinks || []).map((url) => url.trim()).filter(Boolean)),
+    ...(input.galleryUploadedImages || []).map((item) => item.url),
     ...(input.galleryImageFiles || []).map((_, imageIndex) =>
       createPlaceholderImage({
         title: `${input.title} ${imageIndex + 1}`,
@@ -804,7 +808,10 @@ export function updatePost(
       nextGalleryImageUrls.length > 0
         ? [...existingGalleryImageUrls, ...nextGalleryImageUrls]
         : existingGalleryImageUrls,
-    galleryImagePaths: [],
+    galleryImagePaths: [
+      ...(input.clearGalleryImages ? [] : store.posts[index].galleryImagePaths),
+      ...(input.galleryUploadedImages || []).map((item) => item.path),
+    ],
     galleryYear: input.galleryYear ?? null,
   };
 

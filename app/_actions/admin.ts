@@ -143,6 +143,15 @@ const imageLinkSchema = z
     "Use an image link that starts with http:// or https://."
   );
 
+const postGalleryPathSchema = z
+  .string()
+  .trim()
+  .max(500)
+  .refine(
+    (value) => value.startsWith("posts/gallery/"),
+    "Invalid post gallery storage path."
+  );
+
 const teamMemberSchema = z.object({
   id: z.string().optional(),
   name: z.string().trim().min(3).max(120),
@@ -266,6 +275,33 @@ function parseImageLinks(rawValues: string[]) {
   return parsedLinks;
 }
 
+function parseUploadedPostGalleryImages(formData: FormData) {
+  const urls = formData
+    .getAll("galleryUploadedUrls")
+    .map((value) => String(value || "").trim());
+  const paths = formData
+    .getAll("galleryUploadedPaths")
+    .map((value) => String(value || "").trim());
+
+  if (urls.length !== paths.length) {
+    throw new Error("Some uploaded photos are missing their storage details.");
+  }
+
+  return urls.map((url, index) => {
+    const parsedUrl = imageLinkSchema.safeParse(url);
+    const parsedPath = postGalleryPathSchema.safeParse(paths[index]);
+
+    if (!parsedUrl.success || !parsedPath.success) {
+      throw new Error("Some uploaded photos have invalid storage details.");
+    }
+
+    return {
+      url: parsedUrl.data,
+      path: parsedPath.data,
+    };
+  });
+}
+
 export async function savePostAction(formData: FormData) {
   await requireRole("admin");
   const existingSlug = String(formData.get("existingSlug") || "");
@@ -318,10 +354,12 @@ export async function savePostAction(formData: FormData) {
   }
 
   let galleryImageLinks: string[] = [];
+  let galleryUploadedImages: Array<{ url: string; path: string }> = [];
   try {
     galleryImageLinks = parseImageLinks(
       formData.getAll("galleryImageLinks").map((value) => String(value || ""))
     );
+    galleryUploadedImages = parseUploadedPostGalleryImages(formData);
   } catch (error) {
     return flashAndRedirect(postEditorPath, {
       type: "error",
@@ -350,6 +388,7 @@ export async function savePostAction(formData: FormData) {
     coverImageLink,
     galleryImageFiles,
     galleryImageLinks,
+    galleryUploadedImages,
     clearGalleryImages: formData.get("clearGalleryImages") === "on",
     galleryYear: data.galleryYear ?? null,
     published: data.published === "published",

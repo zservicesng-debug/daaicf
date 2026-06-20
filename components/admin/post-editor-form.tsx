@@ -22,6 +22,7 @@ import { buttonClasses } from "@/components/ui/button";
 import { SelectInput, TextInput } from "@/components/ui/field";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { useToast } from "@/components/ui/toast-provider";
+import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 import { type Post } from "@/types";
 
@@ -34,7 +35,14 @@ type GalleryFileRow = {
   id: string;
   file: File;
   previewUrl: string;
+  status: "pending" | "uploading" | "uploaded" | "error";
+  uploadedUrl?: string;
+  uploadedPath?: string;
 };
+
+const MAX_MORE_PHOTOS = 50;
+const MAX_MORE_PHOTO_SIZE = 15 * 1024 * 1024;
+const UPLOAD_CONCURRENCY = 3;
 
 function createGalleryLinkRow(): GalleryLinkRow {
   return {
@@ -48,6 +56,7 @@ function createGalleryFileRow(file: File): GalleryFileRow {
     id: crypto.randomUUID(),
     file,
     previewUrl: URL.createObjectURL(file),
+    status: "pending",
   };
 }
 
@@ -103,9 +112,11 @@ export function PostEditorForm({
   const [clearGallery, setClearGallery] = useState(false);
   const [content, setContent] = useState(initialContent);
   const [uploadingImage, setUploadingImage] = useState(false);
+  const [uploadingGallery, setUploadingGallery] = useState(false);
+  const formRef = useRef<HTMLFormElement | null>(null);
+  const resumeSubmitRef = useRef(false);
   const editorImageInputRef = useRef<HTMLInputElement | null>(null);
   const galleryFilePickerRef = useRef<HTMLInputElement | null>(null);
-  const galleryFileInputRef = useRef<HTMLInputElement | null>(null);
   const galleryFilesRef = useRef<GalleryFileRow[]>([]);
   const { toast } = useToast();
 
@@ -149,29 +160,37 @@ export function PostEditorForm({
     };
   }, []);
 
-  function syncGalleryFileInput(nextFiles: GalleryFileRow[]) {
-    const input = galleryFileInputRef.current;
-    if (!input) {
-      return;
-    }
-
-    const transfer = new DataTransfer();
-    nextFiles.forEach((item) => {
-      transfer.items.add(item.file);
-    });
-    input.files = transfer.files;
-  }
-
   function appendGalleryFiles(files: File[]) {
     if (files.length === 0) {
       return;
     }
 
+    const validFiles = files.filter(
+      (file) => file.type.startsWith("image/") && file.size <= MAX_MORE_PHOTO_SIZE
+    );
+    const rejectedCount = files.length - validFiles.length;
+
     setGalleryFiles((current) => {
-      const nextFiles = [...current, ...files.map(createGalleryFileRow)];
-      syncGalleryFileInput(nextFiles);
-      return nextFiles;
+      const availableSlots = Math.max(0, MAX_MORE_PHOTOS - current.length);
+      return [
+        ...current,
+        ...validFiles.slice(0, availableSlots).map(createGalleryFileRow),
+      ];
     });
+
+    if (rejectedCount > 0) {
+      toast({
+        type: "error",
+        title: "Some photos were not added",
+        description: "More Photos accepts images up to 15 MB each.",
+      });
+    } else if (galleryFilesRef.current.length + validFiles.length > MAX_MORE_PHOTOS) {
+      toast({
+        type: "info",
+        title: "Photo limit reached",
+        description: `You can add up to ${MAX_MORE_PHOTOS} photos in one post update.`,
+      });
+    }
   }
 
   function removeGalleryFile(fileId: string) {
@@ -183,9 +202,135 @@ export function PostEditorForm({
         URL.revokeObjectURL(removedFile.previewUrl);
       }
 
-      syncGalleryFileInput(nextFiles);
       return nextFiles;
     });
+  }
+
+  async function uploadGalleryFile(
+    row: GalleryFileRow,
+    client: NonNullable<ReturnType<typeof createSupabaseBrowserClient>>
+  ) {
+    setGalleryFiles((current) =>
+      current.map((item) =>
+        item.id === row.id ? { ...item, status: "uploading" } : item
+      )
+    );
+
+    try {
+      const response = await fetch("/api/admin/uploads/sign", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: row.file.name,
+          type: row.file.type,
+          size: row.file.size,
+        }),
+      });
+      const payload = (await response.json().catch(() => null)) as
+        | {
+            bucket?: string;
+            path?: string;
+            token?: string;
+            url?: string;
+            error?: string;
+          }
+        | null;
+
+      if (
+        !response.ok ||
+        !payload?.bucket ||
+        !payload.path ||
+        !payload.token ||
+        !payload.url
+      ) {
+        throw new Error(payload?.error || "Unable to prepare this photo.");
+      }
+
+      const { error } = await client.storage
+        .from(payload.bucket)
+        .uploadToSignedUrl(payload.path, payload.token, row.file, {
+          contentType: row.file.type,
+        });
+
+      if (error) {
+        throw error;
+      }
+
+      setGalleryFiles((current) =>
+        current.map((item) =>
+          item.id === row.id
+            ? {
+                ...item,
+                status: "uploaded",
+                uploadedUrl: payload.url,
+                uploadedPath: payload.path,
+              }
+            : item
+        )
+      );
+    } catch (error) {
+      setGalleryFiles((current) =>
+        current.map((item) =>
+          item.id === row.id ? { ...item, status: "error" } : item
+        )
+      );
+      throw error;
+    }
+  }
+
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    if (resumeSubmitRef.current) {
+      resumeSubmitRef.current = false;
+      return;
+    }
+
+    const pendingFiles = galleryFilesRef.current.filter(
+      (item) => item.status !== "uploaded"
+    );
+
+    if (pendingFiles.length === 0) {
+      return;
+    }
+
+    event.preventDefault();
+    if (uploadingGallery) {
+      return;
+    }
+
+    const client = createSupabaseBrowserClient();
+    if (!client) {
+      toast({
+        type: "error",
+        title: "Photos not uploaded",
+        description: "Supabase storage is not configured.",
+      });
+      return;
+    }
+
+    setUploadingGallery(true);
+
+    try {
+      for (let index = 0; index < pendingFiles.length; index += UPLOAD_CONCURRENCY) {
+        await Promise.all(
+          pendingFiles
+            .slice(index, index + UPLOAD_CONCURRENCY)
+            .map((row) => uploadGalleryFile(row, client))
+        );
+      }
+      resumeSubmitRef.current = true;
+      window.requestAnimationFrame(() => formRef.current?.requestSubmit());
+    } catch (error) {
+      toast({
+        type: "error",
+        title: "Photo upload interrupted",
+        description:
+          error instanceof Error
+            ? `${error.message} Save again to retry only the unfinished photos.`
+            : "Save again to retry only the unfinished photos.",
+      });
+    } finally {
+      setUploadingGallery(false);
+    }
   }
 
   async function uploadEditorImage(file: File) {
@@ -244,9 +389,35 @@ export function PostEditorForm({
   }
 
   return (
-    <form action={savePostAction} className="space-y-6">
+    <form
+      ref={formRef}
+      action={savePostAction}
+      onSubmit={handleSubmit}
+      className="space-y-6"
+    >
       <input type="hidden" name="existingSlug" value={post?.slug || ""} />
       <input type="hidden" name="content" value={content} />
+      {galleryFiles
+        .filter(
+          (item) =>
+            item.status === "uploaded" &&
+            item.uploadedUrl &&
+            item.uploadedPath
+        )
+        .map((item) => (
+          <span key={item.id} className="hidden">
+            <input
+              type="hidden"
+              name="galleryUploadedUrls"
+              value={item.uploadedUrl}
+            />
+            <input
+              type="hidden"
+              name="galleryUploadedPaths"
+              value={item.uploadedPath}
+            />
+          </span>
+        ))}
 
       <div>
         <label className="mb-2 block text-sm font-semibold">Title</label>
@@ -491,6 +662,7 @@ export function PostEditorForm({
               <button
                 type="button"
                 onClick={() => galleryFilePickerRef.current?.click()}
+                disabled={uploadingGallery}
                 className={cn(
                   buttonClasses({ variant: "surface", fullWidth: false }),
                   "px-4 py-2 text-xs"
@@ -512,14 +684,6 @@ export function PostEditorForm({
                 event.target.value = "";
               }}
             />
-            <input
-              ref={galleryFileInputRef}
-              name="galleryImageFiles"
-              type="file"
-              accept="image/*"
-              multiple
-              className="hidden"
-            />
 
             {galleryFiles.length > 0 ? (
               <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
@@ -535,12 +699,24 @@ export function PostEditorForm({
                       className="aspect-[4/3] w-full object-cover"
                     />
                     <div className="flex items-center justify-between gap-3 px-3 py-3">
-                      <p className="min-w-0 flex-1 truncate text-sm text-[var(--color-text)]">
-                        {item.file.name}
-                      </p>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm text-[var(--color-text)]">
+                          {item.file.name}
+                        </p>
+                        <p className="mt-1 text-xs muted-copy">
+                          {item.status === "uploaded"
+                            ? "Uploaded"
+                            : item.status === "uploading"
+                              ? "Uploading..."
+                              : item.status === "error"
+                                ? "Retry needed"
+                                : "Ready to upload"}
+                        </p>
+                      </div>
                       <button
                         type="button"
                         onClick={() => removeGalleryFile(item.id)}
+                        disabled={uploadingGallery}
                         className={cn(
                           buttonClasses({ variant: "danger", fullWidth: false }),
                           "px-3 py-2"
@@ -594,6 +770,12 @@ export function PostEditorForm({
               No extra photos added yet.
             </div>
           )}
+          {uploadingGallery ? (
+            <p className="text-sm font-medium text-[var(--color-text)]" aria-live="polite">
+              Uploading photos directly to storage. Keep this page open until saving
+              begins.
+            </p>
+          ) : null}
         </div>
       </div>
 
@@ -689,10 +871,16 @@ export function PostEditorForm({
       </div>
 
       <div className="flex flex-col gap-3 sm:flex-row">
-        <SubmitButton variant="surface" fullWidth={false}>
+        <SubmitButton
+          variant="surface"
+          fullWidth={false}
+          disabled={uploadingGallery}
+        >
           Save Changes
         </SubmitButton>
-        <SubmitButton fullWidth={false}>Publish</SubmitButton>
+        <SubmitButton fullWidth={false} disabled={uploadingGallery}>
+          Publish
+        </SubmitButton>
       </div>
     </form>
   );

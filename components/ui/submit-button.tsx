@@ -10,18 +10,20 @@ export function SubmitButton({
   className,
   variant = "primary",
   fullWidth = true,
+  disabled = false,
 }: {
   children: React.ReactNode;
   className?: string;
   variant?: "primary" | "outline" | "surface" | "danger";
   fullWidth?: boolean;
+  disabled?: boolean;
 }) {
   const { pending } = useFormStatus();
 
   return (
     <button
       type="submit"
-      disabled={pending}
+      disabled={pending || disabled}
       className={cn(
         buttonClasses({ variant, fullWidth }),
         "disabled:cursor-not-allowed disabled:opacity-70",

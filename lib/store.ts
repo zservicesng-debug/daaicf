@@ -773,17 +773,23 @@ async function resolvePostGalleryImages(options: {
   title: string;
   galleryImageFiles?: File[];
   galleryImageLinks?: string[];
+  galleryUploadedImages?: Array<{ url: string; path: string }>;
   existingUrls?: string[];
   existingPaths?: string[];
   clearExisting?: boolean;
 }) {
   const nextFiles = options.galleryImageFiles || [];
   const nextLinks = (options.galleryImageLinks || []).map((link) => link.trim()).filter(Boolean);
+  const nextUploadedImages = options.galleryUploadedImages || [];
   const existingUrls = options.clearExisting ? [] : options.existingUrls || [];
   const existingPaths = options.clearExisting ? [] : options.existingPaths || [];
   const oldPathsToDelete = options.clearExisting ? options.existingPaths || [] : [];
 
-  if (nextFiles.length === 0 && nextLinks.length === 0) {
+  if (
+    nextFiles.length === 0 &&
+    nextLinks.length === 0 &&
+    nextUploadedImages.length === 0
+  ) {
     if (options.clearExisting) {
       return {
         galleryImageUrls: [],
@@ -805,9 +811,14 @@ async function resolvePostGalleryImages(options: {
       galleryImageUrls: [
         ...existingUrls,
         ...nextLinks,
+        ...nextUploadedImages.map((item) => item.url),
         ...uploaded.map((item) => item.publicUrl),
       ],
-      galleryImagePaths: [...existingPaths, ...uploaded.map((item) => item.path)],
+      galleryImagePaths: [
+        ...existingPaths,
+        ...nextUploadedImages.map((item) => item.path),
+        ...uploaded.map((item) => item.path),
+      ],
       oldPathsToDelete,
     };
   }
@@ -817,6 +828,7 @@ async function resolvePostGalleryImages(options: {
       galleryImageUrls: [
         ...existingUrls,
         ...nextLinks,
+        ...nextUploadedImages.map((item) => item.url),
         ...nextFiles.map((file, index) =>
           createPlaceholderImage({
             title: `${options.title} ${index + 1}`,
@@ -831,8 +843,15 @@ async function resolvePostGalleryImages(options: {
   }
 
   return {
-    galleryImageUrls: [...existingUrls, ...nextLinks],
-    galleryImagePaths: existingPaths,
+    galleryImageUrls: [
+      ...existingUrls,
+      ...nextLinks,
+      ...nextUploadedImages.map((item) => item.url),
+    ],
+    galleryImagePaths: [
+      ...existingPaths,
+      ...nextUploadedImages.map((item) => item.path),
+    ],
     oldPathsToDelete,
   };
 }
@@ -1206,6 +1225,7 @@ export async function createPost(input: {
   coverImageLink?: string;
   galleryImageFiles?: File[];
   galleryImageLinks?: string[];
+  galleryUploadedImages?: Array<{ url: string; path: string }>;
   galleryYear?: number | null;
 }) {
   const mock = maybeUseMock(() =>
@@ -1221,6 +1241,7 @@ export async function createPost(input: {
       coverImageLink: input.coverImageLink,
       galleryImageFiles: input.galleryImageFiles,
       galleryImageLinks: input.galleryImageLinks,
+      galleryUploadedImages: input.galleryUploadedImages,
       galleryYear: input.galleryYear,
     })
   );
@@ -1242,6 +1263,7 @@ export async function createPost(input: {
       coverImageLink: input.coverImageLink,
       galleryImageFiles: input.galleryImageFiles,
       galleryImageLinks: input.galleryImageLinks,
+      galleryUploadedImages: input.galleryUploadedImages,
       galleryYear: input.galleryYear,
     });
   }
@@ -1258,6 +1280,7 @@ export async function createPost(input: {
     title,
     galleryImageFiles: input.galleryImageFiles,
     galleryImageLinks: input.galleryImageLinks,
+    galleryUploadedImages: input.galleryUploadedImages,
   });
 
   const { data } = await client
@@ -1301,6 +1324,7 @@ export async function updatePost(
     coverImageLink?: string;
     galleryImageFiles?: File[];
     galleryImageLinks?: string[];
+    galleryUploadedImages?: Array<{ url: string; path: string }>;
     clearGalleryImages?: boolean;
     galleryYear?: number | null;
   }
@@ -1318,6 +1342,7 @@ export async function updatePost(
       coverImageLink: input.coverImageLink,
       galleryImageFiles: input.galleryImageFiles,
       galleryImageLinks: input.galleryImageLinks,
+      galleryUploadedImages: input.galleryUploadedImages,
       clearGalleryImages: input.clearGalleryImages,
       galleryYear: input.galleryYear,
     })
@@ -1340,6 +1365,7 @@ export async function updatePost(
       coverImageLink: input.coverImageLink,
       galleryImageFiles: input.galleryImageFiles,
       galleryImageLinks: input.galleryImageLinks,
+      galleryUploadedImages: input.galleryUploadedImages,
       clearGalleryImages: input.clearGalleryImages,
       galleryYear: input.galleryYear,
     });
@@ -1370,6 +1396,7 @@ export async function updatePost(
     title,
     galleryImageFiles: input.galleryImageFiles,
     galleryImageLinks: input.galleryImageLinks,
+    galleryUploadedImages: input.galleryUploadedImages,
     existingUrls: (existing as PostRow).gallery_image_urls || [],
     existingPaths: (existing as PostRow).gallery_image_paths || [],
     clearExisting: input.clearGalleryImages,
