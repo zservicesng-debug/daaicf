@@ -70,6 +70,18 @@ export function PortalLoginForm({
         />
       </div>
 
+      {role === "admin" ? (
+        <label className="flex cursor-pointer items-center gap-3 text-sm font-medium">
+          <input
+            type="checkbox"
+            name="rememberDevice"
+            className="h-4 w-4 accent-[var(--color-primary)]"
+            defaultChecked
+          />
+          Remember this device for 30 days
+        </label>
+      ) : null}
+
       <SubmitButton className="rounded-[var(--radius-card)]">
         <Lock className="h-4 w-4" />
         {role === "sponsor" ? "Sign In to Chat" : "Sign In to Dashboard"}

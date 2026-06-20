@@ -3,6 +3,8 @@ import { cookies } from "next/headers";
 import { type PortalSession } from "@/types";
 
 export const SESSION_COOKIE_NAME = "daaicf_portal_session";
+const DEFAULT_SESSION_MAX_AGE = 60 * 60 * 12;
+const REMEMBERED_SESSION_MAX_AGE = 60 * 60 * 24 * 30;
 
 function getSessionSecret() {
   if (process.env.SESSION_SECRET) {
@@ -60,14 +62,19 @@ export async function getPortalSession() {
   return parseSessionCookie(cookieStore.get(SESSION_COOKIE_NAME)?.value);
 }
 
-export async function setPortalSession(session: PortalSession) {
+export async function setPortalSession(
+  session: PortalSession,
+  options?: { rememberDevice?: boolean }
+) {
   const cookieStore = await cookies();
   cookieStore.set(SESSION_COOKIE_NAME, serializeSession(session), {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
     path: "/",
-    maxAge: 60 * 60 * 12,
+    maxAge: options?.rememberDevice
+      ? REMEMBERED_SESSION_MAX_AGE
+      : DEFAULT_SESSION_MAX_AGE,
   });
 }
 

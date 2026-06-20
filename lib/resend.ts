@@ -5,6 +5,10 @@ export async function sendTransactionalEmail(input: {
   subject: string;
   html: string;
 }) {
+  if (Array.isArray(input.to) && input.to.length === 0) {
+    return { delivered: false, reason: "missing-recipients" as const };
+  }
+
   if (!process.env.RESEND_API_KEY) {
     return { delivered: false, reason: "missing-api-key" as const };
   }

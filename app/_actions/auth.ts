@@ -21,6 +21,7 @@ const loginSchema = z.object({
   role: z.enum(["admin", "sponsor", "partner"]),
   email: z.string().email("Enter a valid email address."),
   password: z.string().min(1, "Password is required."),
+  rememberDevice: z.boolean(),
   redirectTo: z.string().optional(),
 });
 
@@ -85,6 +86,7 @@ export async function loginPortal(
     role: formData.get("role"),
     email: String(formData.get("email") || "").trim().toLowerCase(),
     password: formData.get("password"),
+    rememberDevice: formData.get("rememberDevice") === "on",
     redirectTo: formData.get("redirectTo"),
   });
 
@@ -116,7 +118,10 @@ export async function loginPortal(
     };
   }
 
-  await setPortalSession(session);
+  await setPortalSession(session, {
+    rememberDevice:
+      parsed.data.role === "admin" && parsed.data.rememberDevice,
+  });
   redirect(sanitizeRedirectTarget(parsed.data.role, parsed.data.redirectTo));
 }
 

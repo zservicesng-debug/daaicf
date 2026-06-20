@@ -32,7 +32,7 @@ Open `http://localhost:3000`.
 
 ## Environment
 
-Copy `.env.example` to `.env.local` and fill in real values when you are ready to connect Supabase, email delivery, and production session signing. Set `ADMIN_EMAIL` to the one admin profile that should be able to access the admin portal. Optionally set `PORTAL_INVITE_REDIRECT_TO` if you want Supabase invites to land on a specific URL after acceptance. You can also set `FACEBOOK_URL`, `TWITTER_URL`, and `INSTAGRAM_URL` to provide default foundation social links when the database settings are blank.
+Copy `.env.example` to `.env.local` and fill in real values when you are ready to connect Supabase, email delivery, and production session signing. Set `ADMIN_EMAIL` to the one admin profile that should be able to access the admin portal. Set `NOTIFICATION_EMAILS` to a comma-separated list of up to four addresses that should receive public website activity notifications. Optionally set `PORTAL_INVITE_REDIRECT_TO` if you want Supabase invites to land on a specific URL after acceptance. You can also set `FACEBOOK_URL`, `TWITTER_URL`, and `INSTAGRAM_URL` to provide default foundation social links when the database settings are blank.
 
 ## Supabase setup
 

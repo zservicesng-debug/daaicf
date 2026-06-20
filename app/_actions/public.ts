@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { appUrl, renderEmailLayout } from "@/lib/email";
 import { setFlashToast } from "@/lib/flash-toast.server";
+import { getNotificationEmails } from "@/lib/notification-emails";
 import {
   addComment,
   addContactMessage,
@@ -67,6 +68,26 @@ export async function submitComment(
   revalidatePath("/activities");
   revalidatePath(`/activities/${parsed.data.postSlug}`);
 
+  await sendTransactionalEmail({
+    to: getNotificationEmails(),
+    subject: `New Comment from ${parsed.data.authorName}`,
+    html: renderEmailLayout({
+      title: "New activity comment",
+      intro: `${parsed.data.authorName} left a comment that is awaiting review.`,
+      details: [
+        { label: "Name", value: parsed.data.authorName },
+        {
+          label: "Comment",
+          value: parsed.data.message || "Interested in this activity.",
+        },
+      ],
+      cta: {
+        label: "Review comments",
+        href: appUrl("/admin/comments"),
+      },
+    }),
+  });
+
   return {
     status: "success" as const,
     message: "Your comment is awaiting review.",
@@ -99,7 +120,7 @@ export async function submitContactMessage(
   await addContactMessage(parsed.data);
 
   await sendTransactionalEmail({
-    to: process.env.ADMIN_EMAIL || "admin@daaicf.org",
+    to: getNotificationEmails(),
     subject: `New Message from ${parsed.data.name}`,
     html: renderEmailLayout({
       title: "New contact message",
@@ -166,7 +187,7 @@ export async function submitHelpApplication(formData: FormData) {
   revalidatePath("/admin/applications");
 
   await sendTransactionalEmail({
-    to: process.env.ADMIN_EMAIL || "admin@daaicf.org",
+    to: getNotificationEmails(),
     subject: `New Help Application from ${data.name}`,
     html: renderEmailLayout({
       title: "New help application",
@@ -294,7 +315,7 @@ export async function submitSponsorApplication(formData: FormData) {
   revalidatePath("/admin/applications/sponsors");
 
   await sendTransactionalEmail({
-    to: process.env.ADMIN_EMAIL || "admin@daaicf.org",
+    to: getNotificationEmails(),
     subject: `New Sponsor Application from ${data.orgName || data.name}`,
     html: renderEmailLayout({
       title: "New sponsor application",
@@ -392,7 +413,7 @@ export async function submitPartnerApplication(formData: FormData) {
   revalidatePath("/admin/applications/partners");
 
   await sendTransactionalEmail({
-    to: process.env.ADMIN_EMAIL || "admin@daaicf.org",
+    to: getNotificationEmails(),
     subject: `New Partner Application from ${data.orgName}`,
     html: renderEmailLayout({
       title: "New partner application",
