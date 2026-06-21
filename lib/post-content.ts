@@ -15,7 +15,44 @@ const VOID_ELEMENTS = new Set([
   "wbr",
 ]);
 
-const MAX_INLINE_POST_IMAGES = 1;
+const MAX_INLINE_POST_IMAGES = 3;
+
+function getInlineImageCount(paragraphCount: number, availableImageCount: number) {
+  const paragraphGapCount = Math.max(0, paragraphCount - 1);
+  let desiredImageCount = 0;
+
+  if (paragraphGapCount >= 6) {
+    desiredImageCount = 3;
+  } else if (paragraphGapCount >= 3) {
+    desiredImageCount = 2;
+  } else if (paragraphGapCount >= 1) {
+    desiredImageCount = 1;
+  }
+
+  return Math.min(
+    MAX_INLINE_POST_IMAGES,
+    desiredImageCount,
+    availableImageCount
+  );
+}
+
+function getImageParagraphIndexes(paragraphCount: number, imageCount: number) {
+  const paragraphGapCount = Math.max(0, paragraphCount - 1);
+
+  if (imageCount === 1) {
+    return [0];
+  }
+
+  if (imageCount === 2) {
+    return [0, Math.floor(paragraphGapCount / 2)];
+  }
+
+  if (imageCount === 3) {
+    return [0, Math.floor(paragraphGapCount / 2), paragraphGapCount - 1];
+  }
+
+  return [];
+}
 
 function getTopLevelParagraphEnds(html: string) {
   const ends: number[] = [];
@@ -67,15 +104,18 @@ export function distributePostGalleryImages(
     (imageUrl) => !isAlreadyInContent(content, imageUrl)
   );
   const paragraphEnds = getTopLevelParagraphEnds(content);
-  const inlineImageCount = Math.min(
-    MAX_INLINE_POST_IMAGES,
-    availableImageUrls.length,
-    Math.max(0, paragraphEnds.length - 1)
+  const inlineImageCount = getInlineImageCount(
+    paragraphEnds.length,
+    availableImageUrls.length
   );
+  const imageParagraphEnds = getImageParagraphIndexes(
+    paragraphEnds.length,
+    inlineImageCount
+  ).map((paragraphIndex) => paragraphEnds[paragraphIndex]);
   const contentSegments: string[] = [];
   let segmentStart = 0;
 
-  for (const paragraphEnd of paragraphEnds.slice(0, inlineImageCount)) {
+  for (const paragraphEnd of imageParagraphEnds) {
     contentSegments.push(content.slice(segmentStart, paragraphEnd));
     segmentStart = paragraphEnd;
   }
