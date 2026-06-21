@@ -15,6 +15,8 @@ const VOID_ELEMENTS = new Set([
   "wbr",
 ]);
 
+const MAX_INLINE_POST_IMAGES = 1;
+
 function getTopLevelParagraphEnds(html: string) {
   const ends: number[] = [];
   const openElements: string[] = [];
@@ -66,6 +68,7 @@ export function distributePostGalleryImages(
   );
   const paragraphEnds = getTopLevelParagraphEnds(content);
   const inlineImageCount = Math.min(
+    MAX_INLINE_POST_IMAGES,
     availableImageUrls.length,
     Math.max(0, paragraphEnds.length - 1)
   );
