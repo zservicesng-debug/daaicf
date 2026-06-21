@@ -2,11 +2,13 @@ import Image from "next/image";
 import { ArrowLeft, CalendarDays } from "lucide-react";
 import type { Metadata } from "next";
 import { FullCommentForm } from "@/components/public/comment-form";
+import { PostContentWithImages } from "@/components/public/post-content-with-images";
 import { PostGalleryLightbox } from "@/components/public/post-gallery-lightbox";
 import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
 import { getSocialLinks } from "@/lib/social";
 import { getPostBySlug, listComments } from "@/lib/store";
+import { distributePostGalleryImages } from "@/lib/post-content";
 import { categoryTone, cn, excerpt, formatDate } from "@/lib/utils";
 import { notFound } from "next/navigation";
 
@@ -93,6 +95,8 @@ export default async function ActivityDetailPage(
     (comment) => comment.status === "approved"
   );
   const socialLinks = getSocialLinks(post.socialLinks);
+  const { contentSegments, inlineImageUrls, remainingImageUrls } =
+    distributePostGalleryImages(post.content, post.galleryImageUrls);
 
   return (
     <article className="bg-white">
@@ -139,13 +143,14 @@ export default async function ActivityDetailPage(
               ))}
             </div>
           ) : null}
-          <div
-            className="prose-daaicf mt-8 max-w-none"
-            dangerouslySetInnerHTML={{ __html: post.content }}
+          <PostContentWithImages
+            title={post.title}
+            contentSegments={contentSegments}
+            imageUrls={inlineImageUrls}
           />
         </div>
 
-        {post.galleryImageUrls.length > 0 ? (
+        {remainingImageUrls.length > 0 ? (
           <section className="mx-auto mt-10 max-w-4xl">
             <div className="card-surface p-6 md:p-8">
               <h2 className="serif-display text-3xl font-semibold text-[var(--color-text)]">
@@ -153,12 +158,12 @@ export default async function ActivityDetailPage(
               </h2>
               <p className="mt-2 text-sm muted-copy">
                 Additional moments from this outreach and activity. Showing{" "}
-                {post.galleryImageUrls.length} photo
-                {post.galleryImageUrls.length === 1 ? "" : "s"}.
+                {remainingImageUrls.length} photo
+                {remainingImageUrls.length === 1 ? "" : "s"}.
               </p>
               <PostGalleryLightbox
                 title={post.title}
-                imageUrls={post.galleryImageUrls}
+                imageUrls={remainingImageUrls}
               />
             </div>
           </section>

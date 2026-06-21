@@ -148,6 +148,14 @@ img {
   line-height: 1.85;
 }
 
+.prose-daaicf p {
+  margin-block: 0 1.5rem;
+}
+
+.prose-daaicf li > p {
+  margin-block: 0;
+}
+
 .prose-daaicf ul,
 .prose-daaicf ol {
   padding-left: 1.25rem;
