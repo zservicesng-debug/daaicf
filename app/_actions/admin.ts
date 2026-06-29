@@ -570,6 +570,7 @@ export async function updateSponsorApplicationAction(formData: FormData) {
     ? await getSponsorApplicationById(id)
     : null;
   const wasApproved = previousSponsorApplication?.status === "approved";
+  const shouldResendAccessEmail = formData.get("resendAccessEmail") === "on";
 
   await updateSponsorApplication(id, { status, projectIds });
 
@@ -585,7 +586,11 @@ export async function updateSponsorApplicationAction(formData: FormData) {
 
   const existingUser = await findUserByEmail("sponsor", application.email);
   const shouldSendAccessEmail =
-    status === "approved" && (!wasApproved || !existingUser || existingUser.status !== "active");
+    status === "approved" &&
+    (shouldResendAccessEmail ||
+      !wasApproved ||
+      !existingUser ||
+      existingUser.status !== "active");
 
   if (status === "approved") {
     const sponsorUser = await createPortalUser({
@@ -710,6 +715,7 @@ export async function updatePartnerApplicationAction(formData: FormData) {
     ? await getPartnerApplicationById(id)
     : null;
   const wasApproved = previousPartnerApplication?.status === "approved";
+  const shouldResendAccessEmail = formData.get("resendAccessEmail") === "on";
 
   await updatePartnerApplication(id, { status });
 
@@ -725,7 +731,11 @@ export async function updatePartnerApplicationAction(formData: FormData) {
 
   const existingUser = await findUserByEmail("partner", application.email);
   const shouldSendAccessEmail =
-    status === "approved" && (!wasApproved || !existingUser || existingUser.status !== "active");
+    status === "approved" &&
+    (shouldResendAccessEmail ||
+      !wasApproved ||
+      !existingUser ||
+      existingUser.status !== "active");
 
   if (status === "approved") {
     const partnerUser = await createPortalUser({

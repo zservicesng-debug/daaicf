@@ -114,6 +114,21 @@ export default async function SponsorApplicationDetailPage(
               <option value="rejected">Reject</option>
             </SelectInput>
           </div>
+          {application.status === "approved" ? (
+            <label className="flex items-start gap-3 rounded-[var(--radius-card)] border border-[var(--color-border)] bg-[var(--color-surface-muted)] p-4 text-sm muted-copy">
+              <input
+                type="checkbox"
+                name="resendAccessEmail"
+                className="mt-1"
+              />
+              <span>
+                <span className="block font-medium text-[var(--color-text)]">
+                  Resend portal access email
+                </span>
+                Send a fresh password setup link to {application.email}.
+              </span>
+            </label>
+          ) : null}
           <SubmitButton>Save Sponsor Decision</SubmitButton>
         </form>
       </Card>

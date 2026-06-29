@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { KeyRound } from "lucide-react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
@@ -8,6 +8,7 @@ import { TextInput } from "@/components/ui/field";
 import { type PortalRole } from "@/types";
 
 type FormStatus = "loading" | "ready" | "saving" | "success" | "error";
+type InviteTokenType = "invite" | "recovery" | "magiclink" | "signup" | "email";
 
 function loginPathForRole(role: PortalRole) {
   switch (role) {
@@ -23,23 +24,71 @@ function loginPathForRole(role: PortalRole) {
 export function InvitePasswordForm({ role }: { role: PortalRole }) {
   const router = useRouter();
   const [status, setStatus] = useState<FormStatus>("loading");
+  const [inviteVerified, setInviteVerified] = useState(false);
   const [message, setMessage] = useState("Checking your invite link...");
+  const hydratedInvite = useRef(false);
 
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
 
   useEffect(() => {
     async function hydrateInviteSession() {
+      if (hydratedInvite.current) {
+        return;
+      }
+
+      hydratedInvite.current = true;
+
       if (!supabase) {
         setStatus("error");
         setMessage("Portal auth is not configured yet.");
         return;
       }
 
+      const searchParams = new URLSearchParams(window.location.search);
+      const tokenHash = searchParams.get("token_hash");
+      const tokenType = searchParams.get("type") as InviteTokenType | null;
+      const authCode = searchParams.get("code");
       const hashParams = new URLSearchParams(window.location.hash.slice(1));
       const accessToken = hashParams.get("access_token");
       const refreshToken = hashParams.get("refresh_token");
 
-      if (accessToken && refreshToken) {
+      if (tokenHash && tokenType) {
+        const { error } = await supabase.auth.verifyOtp({
+          token_hash: tokenHash,
+          type: tokenType,
+        });
+
+        if (error) {
+          setStatus("error");
+          setMessage("This invite link could not be verified. Please ask admin for a fresh link.");
+          return;
+        }
+
+        const nextUrl = new URL(window.location.href);
+        nextUrl.searchParams.delete("token_hash");
+        nextUrl.searchParams.delete("type");
+        window.history.replaceState(
+          null,
+          "",
+          nextUrl.pathname + nextUrl.search
+        );
+      } else if (authCode) {
+        const { error } = await supabase.auth.exchangeCodeForSession(authCode);
+
+        if (error) {
+          setStatus("error");
+          setMessage("This invite link could not be verified. Please ask admin for a fresh link.");
+          return;
+        }
+
+        const nextUrl = new URL(window.location.href);
+        nextUrl.searchParams.delete("code");
+        window.history.replaceState(
+          null,
+          "",
+          nextUrl.pathname + nextUrl.search
+        );
+      } else if (accessToken && refreshToken) {
         const { error } = await supabase.auth.setSession({
           access_token: accessToken,
           refresh_token: refreshToken,
@@ -61,6 +110,7 @@ export function InvitePasswordForm({ role }: { role: PortalRole }) {
         return;
       }
 
+      setInviteVerified(true);
       setStatus("ready");
       setMessage("Create a password to finish setting up your portal access.");
     }
@@ -108,7 +158,7 @@ export function InvitePasswordForm({ role }: { role: PortalRole }) {
   }
 
   const isSaving = status === "saving";
-  const canSubmit = status === "ready" || status === "error";
+  const canSubmit = inviteVerified && (status === "ready" || status === "error");
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5">

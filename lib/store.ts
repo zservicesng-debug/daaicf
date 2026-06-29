@@ -3004,6 +3004,23 @@ function getPortalInviteRedirectTo(role: PortalRole) {
   return appendSearchParam(redirectBase, "role", role);
 }
 
+function buildPortalInviteLink(input: {
+  role: PortalRole;
+  tokenHash?: string;
+  verificationType?: string;
+  fallbackLink?: string;
+}) {
+  if (!input.tokenHash || !input.verificationType) {
+    return input.fallbackLink;
+  }
+
+  const inviteUrl = new URL(appUrl("/auth/invite"));
+  inviteUrl.searchParams.set("role", input.role);
+  inviteUrl.searchParams.set("token_hash", input.tokenHash);
+  inviteUrl.searchParams.set("type", input.verificationType);
+  return inviteUrl.toString();
+}
+
 export async function createPortalUser(input: {
   role: PortalRole;
   displayName: string;
@@ -3075,7 +3092,13 @@ export async function createPortalUser(input: {
         throw linkError || new Error("Unable to generate portal access link.");
       }
 
-      inviteLink = linkData.properties.action_link;
+      inviteLink =
+        buildPortalInviteLink({
+          role: input.role,
+          tokenHash: linkData.properties.hashed_token,
+          verificationType: linkData.properties.verification_type,
+          fallbackLink: linkData.properties.action_link,
+        }) || linkData.properties.action_link;
     }
   } else if (input.password) {
     const { data: authData, error } = await client.auth.admin.createUser({
@@ -3105,7 +3128,13 @@ export async function createPortalUser(input: {
     }
 
     authUserId = inviteData.user.id;
-    inviteLink = inviteData.properties.action_link;
+    inviteLink =
+      buildPortalInviteLink({
+        role: input.role,
+        tokenHash: inviteData.properties.hashed_token,
+        verificationType: inviteData.properties.verification_type,
+        fallbackLink: inviteData.properties.action_link,
+      }) || inviteData.properties.action_link;
   }
 
   if (!authUserId) {
