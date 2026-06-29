@@ -34,6 +34,16 @@ async function flashAndRedirect(
   redirect(path);
 }
 
+function getActionErrorMessage(error: unknown, fallback: string) {
+  return error instanceof Error ? error.message : fallback;
+}
+
+function logEmailDeliveryFailure(context: string, result: { delivered: boolean; reason?: string }) {
+  if (!result.delivered) {
+    console.error(`${context} email was not delivered:`, result.reason);
+  }
+}
+
 const commentSchema = z.object({
   postId: z.string().min(1),
   postSlug: z.string().min(1),
@@ -314,44 +324,85 @@ export async function submitSponsorApplication(formData: FormData) {
     });
   }
 
-  const application = await addSponsorApplication({
-    ...data,
-    sectorInterests,
-    projectIds,
-  });
-  revalidatePath("/admin/applications/sponsors");
+  try {
+    const application = await addSponsorApplication({
+      ...data,
+      sectorInterests,
+      projectIds,
+    });
+    revalidatePath("/admin/applications/sponsors");
 
-  await sendTransactionalEmail({
-    to: getNotificationEmails(),
-    subject: `New Sponsor Application from ${data.orgName || data.name}`,
-    html: renderEmailLayout({
-      title: "New sponsor application",
-      intro: `${data.orgName || data.name} submitted a sponsorship request. Approve it in the portal to create their chat access and send their login link.`,
-      details: [
-        { label: "Name", value: data.name },
-        { label: "Organization", value: data.orgName },
-        { label: "Email", value: data.email },
-        { label: "Phone", value: data.phone },
-        { label: "Applicant type", value: data.applicantType },
-        { label: "Preference", value: data.sponsorshipPreference },
-        {
-          label: "Sectors",
-          value: sectorInterests.length > 0 ? sectorInterests.join(", ") : "General",
-        },
-        { label: "Requested projects", value: projectIds.length },
-        { label: "Budget range", value: data.budgetRange },
-        { label: "Message", value: data.message || "No message" },
-      ],
-      cta: {
-        label: "Review sponsor",
-        href: appUrl(`/admin/applications/sponsors/${application.id}`),
-      },
-      secondaryCta: {
-        label: "View all sponsors",
-        href: appUrl("/admin/applications/sponsors"),
-      },
-    }),
-  });
+    const [adminNotification, applicantReceipt] = await Promise.all([
+      sendTransactionalEmail({
+        to: getNotificationEmails(),
+        subject: `New Sponsor Application from ${data.orgName || data.name}`,
+        html: renderEmailLayout({
+          title: "New sponsor application",
+          intro: `${data.orgName || data.name} submitted a sponsorship request. Approve it in the portal to create their chat access and send their login link.`,
+          details: [
+            { label: "Name", value: data.name },
+            { label: "Organization", value: data.orgName },
+            { label: "Email", value: data.email },
+            { label: "Phone", value: data.phone },
+            { label: "Applicant type", value: data.applicantType },
+            { label: "Preference", value: data.sponsorshipPreference },
+            {
+              label: "Sectors",
+              value:
+                sectorInterests.length > 0 ? sectorInterests.join(", ") : "General",
+            },
+            { label: "Requested projects", value: projectIds.length },
+            { label: "Budget range", value: data.budgetRange },
+            { label: "Message", value: data.message || "No message" },
+          ],
+          cta: {
+            label: "Review sponsor",
+            href: appUrl(`/admin/applications/sponsors/${application.id}`),
+          },
+          secondaryCta: {
+            label: "View all sponsors",
+            href: appUrl("/admin/applications/sponsors"),
+          },
+        }),
+      }),
+      sendTransactionalEmail({
+        to: data.email,
+        subject: "We received your DAAICF sponsorship request",
+        html: renderEmailLayout({
+          title: "Sponsorship request received",
+          intro:
+            "Thank you for your interest in supporting DAAICF. Our team has received your sponsorship request and will review it shortly.",
+          details: [
+            { label: "Name", value: data.name },
+            { label: "Organization", value: data.orgName },
+            { label: "Preference", value: data.sponsorshipPreference },
+            {
+              label: "Sectors",
+              value:
+                sectorInterests.length > 0 ? sectorInterests.join(", ") : "General",
+            },
+            { label: "Requested projects", value: projectIds.length },
+            { label: "Budget range", value: data.budgetRange },
+          ],
+          footer:
+            "If your request is approved, you will receive a separate portal access email with your login link.",
+        }),
+      }),
+    ]);
+
+    logEmailDeliveryFailure("Sponsor application notification", adminNotification);
+    logEmailDeliveryFailure("Sponsor applicant receipt", applicantReceipt);
+  } catch (error) {
+    console.error("Sponsor application submission failed:", error);
+    return flashAndRedirect("/apply/sponsor", {
+      type: "error",
+      title: "Application not submitted",
+      description: getActionErrorMessage(
+        error,
+        "We could not save your sponsorship request right now. Please try again."
+      ),
+    });
+  }
 
   await flashAndRedirect("/apply/sponsor", {
     type: "success",
@@ -412,39 +463,74 @@ export async function submitPartnerApplication(formData: FormData) {
     });
   }
 
-  const application = await addPartnerApplication({
-    ...data,
-    website: data.website || undefined,
-    partnershipInterests: Array.from(new Set(data.partnershipInterests)),
-  });
-  revalidatePath("/admin/applications/partners");
+  try {
+    const partnershipInterests = Array.from(new Set(data.partnershipInterests));
+    const application = await addPartnerApplication({
+      ...data,
+      website: data.website || undefined,
+      partnershipInterests,
+    });
+    revalidatePath("/admin/applications/partners");
 
-  await sendTransactionalEmail({
-    to: getNotificationEmails(),
-    subject: `New Partner Application from ${data.orgName}`,
-    html: renderEmailLayout({
-      title: "New partner application",
-      intro: `${data.orgName} submitted a partnership request. Review and approve it in the admin portal.`,
-      details: [
-        { label: "Organization", value: data.orgName },
-        { label: "Contact", value: data.contactName },
-        { label: "Email", value: data.email },
-        { label: "Phone", value: data.phone },
-        { label: "Organization type", value: data.orgType },
-        { label: "Website", value: data.website || "Not provided" },
-        { label: "Interests", value: data.partnershipInterests.join(", ") },
-        { label: "Description", value: data.description },
-      ],
-      cta: {
-        label: "Review partner",
-        href: appUrl(`/admin/applications/partners/${application.id}`),
-      },
-      secondaryCta: {
-        label: "View all partners",
-        href: appUrl("/admin/applications/partners"),
-      },
-    }),
-  });
+    const [adminNotification, applicantReceipt] = await Promise.all([
+      sendTransactionalEmail({
+        to: getNotificationEmails(),
+        subject: `New Partner Application from ${data.orgName}`,
+        html: renderEmailLayout({
+          title: "New partner application",
+          intro: `${data.orgName} submitted a partnership request. Review and approve it in the admin portal.`,
+          details: [
+            { label: "Organization", value: data.orgName },
+            { label: "Contact", value: data.contactName },
+            { label: "Email", value: data.email },
+            { label: "Phone", value: data.phone },
+            { label: "Organization type", value: data.orgType },
+            { label: "Website", value: data.website || "Not provided" },
+            { label: "Interests", value: partnershipInterests.join(", ") },
+            { label: "Description", value: data.description },
+          ],
+          cta: {
+            label: "Review partner",
+            href: appUrl(`/admin/applications/partners/${application.id}`),
+          },
+          secondaryCta: {
+            label: "View all partners",
+            href: appUrl("/admin/applications/partners"),
+          },
+        }),
+      }),
+      sendTransactionalEmail({
+        to: data.email,
+        subject: "We received your DAAICF partnership request",
+        html: renderEmailLayout({
+          title: "Partnership request received",
+          intro:
+            "Thank you for reaching out to DAAICF. Our team has received your partnership request and will review the proposal shortly.",
+          details: [
+            { label: "Organization", value: data.orgName },
+            { label: "Contact", value: data.contactName },
+            { label: "Organization type", value: data.orgType },
+            { label: "Interests", value: partnershipInterests.join(", ") },
+          ],
+          footer:
+            "If your request is approved, you will receive a separate portal access email with your login link.",
+        }),
+      }),
+    ]);
+
+    logEmailDeliveryFailure("Partner application notification", adminNotification);
+    logEmailDeliveryFailure("Partner applicant receipt", applicantReceipt);
+  } catch (error) {
+    console.error("Partner application submission failed:", error);
+    return flashAndRedirect("/apply/partner", {
+      type: "error",
+      title: "Request not submitted",
+      description: getActionErrorMessage(
+        error,
+        "We could not save your partnership request right now. Please try again."
+      ),
+    });
+  }
 
   await flashAndRedirect("/apply/partner", {
     type: "success",

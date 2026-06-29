@@ -252,6 +252,21 @@ function maybeUseMock<T>(callback: () => T): T | typeof MOCK_UNSET {
   return MOCK_UNSET;
 }
 
+function isLegacySponsorInsertError(error: { message?: string; code?: string } | null) {
+  if (!error) {
+    return false;
+  }
+
+  const message = error.message?.toLowerCase() || "";
+  return (
+    message.includes("sector_interests") ||
+    message.includes("sponsorship_preference") ||
+    message.includes("sponsor_applications_sponsorship_preference_check") ||
+    error.code === "42703" ||
+    error.code === "23514"
+  );
+}
+
 function mapPost(row: PostRow): Post {
   return {
     id: row.id,
@@ -2167,24 +2182,56 @@ export async function addSponsorApplication(
     return mockStore.addSponsorApplication(input);
   }
 
-  const { data } = await client
+  const payload = {
+    name: input.name,
+    org_name: input.orgName,
+    email: input.email.toLowerCase(),
+    phone: input.phone,
+    applicant_type: input.applicantType,
+    sponsorship_preference: input.sponsorshipPreference,
+    sector_interests: input.sectorInterests,
+    project_ids: input.projectIds,
+    budget_range: input.budgetRange,
+    message: input.message || null,
+    status: "pending",
+  };
+
+  const { data, error } = await client
     .from("sponsor_applications")
-    .insert({
-      name: input.name,
-      org_name: input.orgName,
-      email: input.email.toLowerCase(),
-      phone: input.phone,
-      applicant_type: input.applicantType,
-      sponsorship_preference: input.sponsorshipPreference,
-      sector_interests: input.sectorInterests,
-      project_ids: input.projectIds,
-      budget_range: input.budgetRange,
-      message: input.message || null,
-      status: "pending",
-    })
+    .insert(payload)
     .select("*")
-    .single()
-    .throwOnError();
+    .single();
+
+  if (error) {
+    const canRetryLegacySchema =
+      input.sponsorshipPreference !== "Specific Sector(s)" &&
+      isLegacySponsorInsertError(error);
+
+    if (canRetryLegacySchema) {
+      const legacyPayload = {
+        ...payload,
+        sponsorship_preference:
+          input.sponsorshipPreference === "General Support"
+            ? "General Financial Support"
+            : input.sponsorshipPreference,
+      };
+      delete (legacyPayload as Partial<typeof payload>).sector_interests;
+
+      const { data: legacyData, error: legacyError } = await client
+        .from("sponsor_applications")
+        .insert(legacyPayload)
+        .select("*")
+        .single();
+
+      if (legacyError) {
+        throw legacyError;
+      }
+
+      return mapSponsorApplication(legacyData as SponsorApplicationRow);
+    }
+
+    throw error;
+  }
 
   return mapSponsorApplication(data as SponsorApplicationRow);
 }
