@@ -106,6 +106,7 @@ export interface Comment {
   id: string;
   postId: string;
   authorName: string;
+  authorEmail?: string;
   message: string;
   status: "pending" | "approved";
   createdAt: string;

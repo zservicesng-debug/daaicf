@@ -1,5 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
+import type { Metadata } from "next";
 import {
   ArrowRight,
   BookOpen,
@@ -22,7 +23,20 @@ import {
   FOUNDATION_OPERATING_YEAR,
   FOUNDATION_REGISTERED_YEAR,
 } from "@/lib/foundation";
+import { buildPageMetadata } from "@/lib/seo";
 import { getStore, listPosts } from "@/lib/store";
+
+export const metadata: Metadata = buildPageMetadata({
+  title: "DAAICF - Dr. Andrew A. Igwe Care Foundation",
+  description:
+    "Official website of DAAICF, the Dr. Andrew A. Igwe Care Foundation supporting education, healthcare, infrastructure, relief, and empowerment across Nigeria.",
+  path: "/",
+  keywords: [
+    "official DAAICF website",
+    "Dr Andrew Igwe foundation",
+    "Dr Andrew A Igwe foundation",
+  ],
+});
 
 const values = [
   {

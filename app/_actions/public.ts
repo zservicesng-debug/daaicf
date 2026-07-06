@@ -48,7 +48,7 @@ const commentSchema = z.object({
   postId: z.string().min(1),
   postSlug: z.string().min(1),
   authorName: z.string().min(2, "Please enter your name."),
-  authorEmail: z.string().email("Enter a valid email address."),
+  authorEmail: z.string().trim().email("Enter a valid email address."),
   message: z.string().optional(),
 });
 
@@ -74,6 +74,7 @@ export async function submitComment(
   await addComment({
     postId: parsed.data.postId,
     authorName: parsed.data.authorName,
+    authorEmail: parsed.data.authorEmail,
     message: parsed.data.message || "Interested in this activity.",
   });
 

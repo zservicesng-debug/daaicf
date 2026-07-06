@@ -8,6 +8,12 @@ import {
   FOUNDATION_OPERATING_YEAR,
   FOUNDATION_REGISTERED_YEAR,
 } from "@/lib/foundation";
+import {
+  SITE_ACRONYM,
+  SITE_NAME,
+  coreSeoKeywords,
+  organizationAliases,
+} from "@/lib/seo";
 import { getAppBaseUrl } from "@/lib/site-url";
 import "./globals.css";
 
@@ -24,8 +30,8 @@ const playfair = Playfair_Display({
 export const metadata: Metadata = {
   metadataBase: new URL(getAppBaseUrl()),
   title: {
-    default: "Dr. Andrew A. Igwe Care Foundation",
-    template: "%s | Dr. Andrew A. Igwe Care Foundation",
+    default: `${SITE_ACRONYM} | ${SITE_NAME}`,
+    template: `%s | ${SITE_ACRONYM}`,
   },
   alternates: {
     canonical: "/",
@@ -38,30 +44,33 @@ export const metadata: Metadata = {
     apple: [{ url: "/apple-icon", type: "image/png" }],
   },
   description:
-    `Supporting underserved communities across Nigeria since ${FOUNDATION_OPERATING_YEAR}, officially registered in ${FOUNDATION_REGISTERED_YEAR}.`,
-  applicationName: "DAAICF",
-  keywords: [
-    "DAAICF",
-    "Dr. Andrew A. Igwe Care Foundation",
-    "Nigeria charity",
-    "education outreach",
-    "medical outreach",
-    "community empowerment",
-  ],
+    `${SITE_NAME}, also known as ${SITE_ACRONYM}, supports underserved communities across Nigeria since ${FOUNDATION_OPERATING_YEAR} and is officially registered in ${FOUNDATION_REGISTERED_YEAR}.`,
+  applicationName: SITE_ACRONYM,
+  authors: [{ name: SITE_NAME, url: "/" }],
+  creator: SITE_NAME,
+  publisher: SITE_NAME,
+  category: "Nonprofit organization",
+  keywords: coreSeoKeywords,
+  other: {
+    "application-name": SITE_ACRONYM,
+    "og:alternate_name": organizationAliases.join(", "),
+  },
   openGraph: {
-    title: "Dr. Andrew A. Igwe Care Foundation",
+    title: `${SITE_ACRONYM} | ${SITE_NAME}`,
     description:
       `${FOUNDATION_MOTTO} through education, healthcare, infrastructure, relief, and empowerment.`,
     url: "/",
-    siteName: "Dr. Andrew A. Igwe Care Foundation",
+    siteName: SITE_NAME,
     type: "website",
     locale: "en_NG",
+    images: [{ url: "/icon", alt: `${SITE_ACRONYM} logo` }],
   },
   twitter: {
     card: "summary_large_image",
-    title: "Dr. Andrew A. Igwe Care Foundation",
+    title: `${SITE_ACRONYM} | ${SITE_NAME}`,
     description:
       `${FOUNDATION_MOTTO} through education, healthcare, infrastructure, relief, and empowerment.`,
+    images: ["/icon"],
   },
   robots: {
     index: true,

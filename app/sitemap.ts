@@ -9,6 +9,7 @@ const staticRoutes: Array<{
 }> = [
   { path: "/", changeFrequency: "weekly", priority: 1 },
   { path: "/about", changeFrequency: "monthly", priority: 0.8 },
+  { path: "/about/dr-andrew-igwe", changeFrequency: "monthly", priority: 0.8 },
   { path: "/about/team", changeFrequency: "monthly", priority: 0.6 },
   { path: "/activities", changeFrequency: "weekly", priority: 0.9 },
   { path: "/gallery", changeFrequency: "weekly", priority: 0.7 },

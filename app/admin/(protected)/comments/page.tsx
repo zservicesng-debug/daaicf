@@ -31,6 +31,16 @@ export default async function AdminCommentsPage() {
                   <p className="mt-1 text-sm muted-copy">
                     On: {post?.title} | {formatDate(comment.createdAt)}
                   </p>
+                  {comment.authorEmail ? (
+                    <a
+                      href={`mailto:${comment.authorEmail}`}
+                      className="mt-1 inline-block text-sm font-medium text-[var(--color-primary)]"
+                    >
+                      {comment.authorEmail}
+                    </a>
+                  ) : (
+                    <p className="mt-1 text-sm muted-copy">No email captured</p>
+                  )}
                 </div>
                 <span className="text-sm font-semibold text-[var(--color-primary)]">
                   {comment.status === "pending" ? "Pending" : "Approved"}

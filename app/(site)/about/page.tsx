@@ -1,5 +1,6 @@
 import Image from "next/image";
 import { ArrowRight } from "lucide-react";
+import type { Metadata } from "next";
 import aboutUsImage from "@/assets/about-us.jpeg";
 import { PageHero } from "@/components/public/page-hero";
 import { ButtonLink } from "@/components/ui/button";
@@ -8,7 +9,22 @@ import {
   FOUNDATION_OPERATING_YEAR,
   FOUNDATION_REGISTERED_YEAR,
 } from "@/lib/foundation";
+import { FOUNDER_PROFILE_PATH, buildPageMetadata } from "@/lib/seo";
 import { getStore } from "@/lib/store";
+
+export const metadata: Metadata = buildPageMetadata({
+  title: "About DAAICF and Dr. Andrew Igwe",
+  description:
+    "Learn about DAAICF, the Dr. Andrew A. Igwe Care Foundation, and founder Dr. Andrew Igwe's work in education, healthcare, empowerment, and community service in Nigeria.",
+  path: "/about",
+  keywords: [
+    "about DAAICF",
+    "Dr Andrew",
+    "Dr Andrew A",
+    "Dr Andrew Igwe biography",
+    "Dr Andrew A Igwe founder",
+  ],
+});
 
 export default async function AboutPage() {
   const { settings } = await getStore();
@@ -65,13 +81,17 @@ export default async function AboutPage() {
                 <li>Provision of study materials (textbooks, bags, etc.)</li>
               </ul>
               <p>
-                Dr. Igwe&apos;s core values are compassion, sustainability, and
-                empowerment. He believes that lasting change is achieved by
+                Dr. Andrew Igwe&apos;s core values are compassion, sustainability,
+                and empowerment. He believes that lasting change is achieved by
                 uplifting individuals and building resilient communities, and he
                 continues to inspire others to join him in making a meaningful
                 difference.
               </p>
             </div>
+            <ButtonLink href={FOUNDER_PROFILE_PATH} className="mt-8">
+              Read Founder Profile
+              <ArrowRight className="h-4 w-4" />
+            </ButtonLink>
           </div>
         </div>
       </section>

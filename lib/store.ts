@@ -80,6 +80,7 @@ type CommentRow = {
   id: string;
   post_id: string;
   author_name: string;
+  author_email?: string | null;
   message: string;
   status: Comment["status"];
   created_at: string;
@@ -353,6 +354,7 @@ function mapComment(row: CommentRow): Comment {
     id: row.id,
     postId: row.post_id,
     authorName: row.author_name,
+    authorEmail: row.author_email || undefined,
     message: row.message,
     status: row.status,
     createdAt: row.created_at,
@@ -1962,7 +1964,7 @@ export async function listComments(postId?: string): Promise<Comment[]> {
 }
 
 export async function addComment(
-  input: Pick<Comment, "postId" | "authorName" | "message">
+  input: Pick<Comment, "postId" | "authorName" | "authorEmail" | "message">
 ) {
   const mock = maybeUseMock(() => mockStore.addComment(input));
   if (mock !== MOCK_UNSET) {
@@ -1979,6 +1981,7 @@ export async function addComment(
     .insert({
       post_id: input.postId,
       author_name: input.authorName,
+      author_email: input.authorEmail || null,
       message: input.message,
       status: "pending",
     })

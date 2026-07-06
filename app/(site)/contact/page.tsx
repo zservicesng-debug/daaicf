@@ -62,14 +62,16 @@ export default async function ContactPage() {
                   </span>
                   <div>
                     <p className="font-semibold text-[var(--color-text)]">Social Media</p>
+                    <p className="mt-1 text-sm muted-copy">Tap a link to visit our page.</p>
                     <div className="mt-2 flex flex-wrap gap-3">
                       {socialLinks.map((item) => (
                         <a
                           key={item.label}
                           href={item.href}
-                          className="text-sm muted-copy hover:text-[var(--color-primary)]"
+                          className="rounded-full border border-[var(--color-border)] px-3 py-1 text-sm font-semibold text-[var(--color-primary)] underline underline-offset-4 transition hover:border-[var(--color-primary)] hover:bg-[var(--color-surface-muted)]"
                           target="_blank"
                           rel="noreferrer"
+                          aria-label={`Open DAAICF ${item.label} page`}
                         >
                           {item.label}
                         </a>

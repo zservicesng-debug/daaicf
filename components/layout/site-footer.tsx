@@ -30,15 +30,17 @@ export async function SiteFooter() {
               {FOUNDATION_REGISTERED_YEAR}
             </p>
             {socialLinks.length > 0 ? (
-              <div className="flex flex-wrap items-center justify-center gap-3 md:justify-start">
+              <div className="flex flex-wrap items-center justify-center gap-3 text-sm md:justify-start">
                 <Globe2 className="h-4 w-4 text-white/70" />
+                <span className="font-semibold text-white/78">Follow us:</span>
                 {socialLinks.map((item) => (
                   <a
                     key={item.label}
                     href={item.href}
                     target="_blank"
                     rel="noreferrer"
-                    className="text-sm text-white/86 hover:text-white"
+                    className="rounded-full border border-white/22 px-3 py-1 font-semibold text-white/90 underline underline-offset-4 transition hover:border-white/50 hover:bg-white/10 hover:text-white"
+                    aria-label={`Open DAAICF ${item.label} page`}
                   >
                     {item.label}
                   </a>

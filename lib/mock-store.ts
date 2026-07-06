@@ -1090,7 +1090,9 @@ export function listComments(postId?: string) {
   );
 }
 
-export function addComment(input: Pick<Comment, "postId" | "authorName" | "message">) {
+export function addComment(
+  input: Pick<Comment, "postId" | "authorName" | "authorEmail" | "message">
+) {
   const item: Comment = {
     id: crypto.randomUUID(),
     status: "pending",

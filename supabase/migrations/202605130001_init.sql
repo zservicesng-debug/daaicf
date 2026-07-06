@@ -91,6 +91,7 @@ create table if not exists public.comments (
   id uuid primary key default gen_random_uuid(),
   post_id uuid not null references public.posts(id) on delete cascade,
   author_name text not null,
+  author_email text,
   message text not null,
   status text not null default 'pending' check (status in ('pending', 'approved')),
   created_at timestamptz not null default timezone('utc', now())
