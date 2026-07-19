@@ -6,10 +6,10 @@ import {
   FOUNDATION_REGISTERED_YEAR,
 } from "@/lib/foundation";
 import { getSocialLinks } from "@/lib/social";
-import { getStore } from "@/lib/store";
+import { getSettings } from "@/lib/store";
 
 export async function SiteFooter() {
-  const { settings } = await getStore();
+  const settings = await getSettings();
   const currentYear = new Date().getFullYear();
   const socialLinks = getSocialLinks(settings.contact);
 
@@ -60,7 +60,9 @@ export async function SiteFooter() {
               <Link href="/about">About</Link>
               <Link href="/apply/sponsor">Become a Sponsor</Link>
               <Link href="/apply/partner">Partner with Us</Link>
-              <Link href="/apply">Apply for Help</Link>
+              {settings.features.helpApplicationsEnabled ? (
+                <Link href="/apply">Apply for Help</Link>
+              ) : null}
               <Link href="/contact">Contact</Link>
             </div>
           </div>

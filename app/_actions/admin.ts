@@ -841,6 +841,9 @@ export async function deletePartnerApplicationAction(
 export async function saveSettingsAction(formData: FormData) {
   await requireRole("admin");
   await updateSettings({
+    features: {
+      helpApplicationsEnabled: formData.get("helpApplicationsEnabled") === "on",
+    },
     impact: {
       communitiesReached: Number(formData.get("communitiesReached") || 0),
       beneficiariesSupported: Number(formData.get("beneficiariesSupported") || 0),
@@ -860,6 +863,9 @@ export async function saveSettingsAction(formData: FormData) {
   revalidatePath("/admin/settings");
   revalidatePath("/");
   revalidatePath("/contact");
+  revalidatePath("/apply");
+  revalidatePath("/apply/success");
+  revalidatePath("/sitemap.xml");
   await flashAndRedirect("/admin/settings", {
     type: "success",
     title: "Settings saved",

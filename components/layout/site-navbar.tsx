@@ -24,7 +24,11 @@ function isActive(pathname: string, href: string) {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
-export function SiteNavbar() {
+export function SiteNavbar({
+  helpApplicationsEnabled = true,
+}: {
+  helpApplicationsEnabled?: boolean;
+}) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
@@ -92,9 +96,11 @@ export function SiteNavbar() {
           >
             Partner
           </Link>
-          <Link href="/apply" className={buttonClasses({ variant: "outline" })}>
-            Apply for Help
-          </Link>
+          {helpApplicationsEnabled ? (
+            <Link href="/apply" className={buttonClasses({ variant: "outline" })}>
+              Apply for Help
+            </Link>
+          ) : null}
         </div>
 
         <button
@@ -149,13 +155,15 @@ export function SiteNavbar() {
               >
                 Partner with Us
               </Link>
-              <Link
-                href="/apply"
-                className={cn(buttonClasses({ variant: "outline", fullWidth: true }))}
-                onClick={() => setOpen(false)}
-              >
-                Apply for Help
-              </Link>
+              {helpApplicationsEnabled ? (
+                <Link
+                  href="/apply"
+                  className={cn(buttonClasses({ variant: "outline", fullWidth: true }))}
+                  onClick={() => setOpen(false)}
+                >
+                  Apply for Help
+                </Link>
+              ) : null}
             </div>
           </div>
         </div>

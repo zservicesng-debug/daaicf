@@ -1,6 +1,6 @@
 import type { MetadataRoute } from "next";
 import { getAppBaseUrl } from "@/lib/site-url";
-import { listPosts } from "@/lib/store";
+import { getSettings, listPosts } from "@/lib/store";
 
 const staticRoutes: Array<{
   path: string;
@@ -22,14 +22,18 @@ const staticRoutes: Array<{
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const baseUrl = getAppBaseUrl();
   const now = new Date();
+  const settings = await getSettings();
   const { items: posts } = await listPosts({
     publishedOnly: true,
     page: 1,
     perPage: 1000,
   });
+  const routes = settings.features.helpApplicationsEnabled
+    ? staticRoutes
+    : staticRoutes.filter((route) => route.path !== "/apply");
 
   return [
-    ...staticRoutes.map((route) => ({
+    ...routes.map((route) => ({
       url: `${baseUrl}${route.path}`,
       lastModified: now,
       changeFrequency: route.changeFrequency,

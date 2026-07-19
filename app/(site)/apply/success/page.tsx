@@ -1,9 +1,16 @@
 import Link from "next/link";
+import { notFound } from "next/navigation";
 import { Card } from "@/components/ui/card";
+import { getSettings } from "@/lib/store";
 
 export default async function ApplySuccessPage(
   props: PageProps<"/apply/success">
 ) {
+  const settings = await getSettings();
+  if (!settings.features.helpApplicationsEnabled) {
+    notFound();
+  }
+
   const searchParams = await props.searchParams;
   const name = (searchParams.name as string) || "Applicant";
 

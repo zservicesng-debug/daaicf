@@ -1,12 +1,19 @@
 import { CircleAlert } from "lucide-react";
+import { notFound } from "next/navigation";
 import { submitHelpApplication } from "@/app/_actions/public";
 import { PageHero } from "@/components/public/page-hero";
 import { ButtonLink } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { SelectInput, TextArea, TextInput } from "@/components/ui/field";
 import { SubmitButton } from "@/components/ui/submit-button";
+import { getSettings } from "@/lib/store";
 
-export default function ApplyPage() {
+export default async function ApplyPage() {
+  const settings = await getSettings();
+  if (!settings.features.helpApplicationsEnabled) {
+    notFound();
+  }
+
   return (
     <>
       <PageHero

@@ -71,6 +71,7 @@ function buildFeaturedPostHref(slug: string) {
 
 export default async function HomePage() {
   const { settings } = await getStore();
+  const helpApplicationsEnabled = settings.features.helpApplicationsEnabled;
   const featuredPosts = (await listPosts({ publishedOnly: true, perPage: 2 })).items;
   const serviceYears = Math.max(
     settings.impact.yearsOfService,
@@ -148,8 +149,12 @@ export default async function HomePage() {
                 Explore Our Work
                 <ArrowRight className="h-4 w-4" />
               </ButtonLink>
-              <ButtonLink href="/apply" variant="outline" className="sm:min-w-44">
-                Request Support
+              <ButtonLink
+                href={helpApplicationsEnabled ? "/apply" : "/contact"}
+                variant="outline"
+                className="sm:min-w-44"
+              >
+                {helpApplicationsEnabled ? "Request Support" : "Contact Us"}
                 <ArrowRight className="h-4 w-4" />
               </ButtonLink>
             </div>
@@ -305,12 +310,14 @@ export default async function HomePage() {
           >
             <p className="section-eyebrow text-white/58">Join the Movement</p>
             <h2 className="serif-display mt-4 max-w-3xl text-3xl font-bold sm:text-4xl md:text-5xl">
-              Ready to support the mission or ask for help?
+              {helpApplicationsEnabled
+                ? "Ready to support the mission or ask for help?"
+                : "Ready to support the mission or connect with us?"}
             </h2>
             <p className="mt-5 max-w-2xl text-base leading-8 text-white/74 md:text-lg">
-              Whether you want to sponsor a sector or project, partner with us,
-              volunteer, or reach out for assistance, we are ready to listen and
-              connect you to the next step.
+              {helpApplicationsEnabled
+                ? "Whether you want to sponsor a sector or project, partner with us, volunteer, or reach out for assistance, we are ready to listen and connect you to the next step."
+                : "Whether you want to sponsor a sector or project, partner with us, volunteer, or contact the foundation, we are ready to listen and connect you to the next step."}
             </p>
             <div className="mt-8 flex flex-col gap-4 sm:flex-row">
               <ButtonLink href="/apply/sponsor" variant="primary">
@@ -323,10 +330,14 @@ export default async function HomePage() {
               </ButtonLink>
             </div>
             <div className="mt-4 flex flex-col gap-3 text-sm text-white/74 sm:flex-row sm:items-center">
-              <Link href="/apply" className="font-semibold text-white">
-                Apply for assistance
-              </Link>
-              <span className="hidden text-white/35 sm:inline">/</span>
+              {helpApplicationsEnabled ? (
+                <>
+                  <Link href="/apply" className="font-semibold text-white">
+                    Apply for assistance
+                  </Link>
+                  <span className="hidden text-white/35 sm:inline">/</span>
+                </>
+              ) : null}
               <Link href="/contact" className="font-semibold text-white">
                 Get in touch
               </Link>

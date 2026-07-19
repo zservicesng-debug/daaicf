@@ -319,6 +319,9 @@ function buildInitialStore(): SiteStore {
 
   return {
     settings: {
+      features: {
+        helpApplicationsEnabled: true,
+      },
       impact: {
         communitiesReached: 40,
         beneficiariesSupported: 2000,
@@ -1265,6 +1268,10 @@ export function updateSettings(input: Partial<SiteStore["settings"]>) {
   store.settings = {
     ...store.settings,
     ...input,
+    features: {
+      ...store.settings.features,
+      ...input.features,
+    },
     impact: {
       ...store.settings.impact,
       ...input.impact,

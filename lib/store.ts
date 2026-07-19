@@ -143,6 +143,7 @@ type PartnerApplicationRow = {
 
 type SiteSettingsRow = {
   id: string;
+  help_applications_enabled?: boolean | null;
   organization_name: string;
   rc_number: string;
   tagline: string;
@@ -443,6 +444,9 @@ function mapSettings(row?: SiteSettingsRow | null): SettingsBundle {
   });
 
   return {
+    features: {
+      helpApplicationsEnabled: row.help_applications_enabled ?? true,
+    },
     impact: {
       communitiesReached: row.communities_reached,
       beneficiariesSupported: row.beneficiaries_supported,
@@ -1009,6 +1013,17 @@ async function fetchSettings() {
     .throwOnError();
 
   return mapSettings(data as SiteSettingsRow | null);
+}
+
+export async function getSettings(): Promise<SettingsBundle> {
+  noStore();
+
+  const mock = maybeUseMock(() => mockStore.getStore().settings);
+  if (mock !== MOCK_UNSET) {
+    return mock;
+  }
+
+  return fetchSettings();
 }
 
 async function fetchAllUsers() {
@@ -2429,6 +2444,10 @@ export async function updateSettings(input: Partial<SiteStore["settings"]>) {
 
   const current = await fetchSettings();
   const nextSettings: SettingsBundle = {
+    features: {
+      ...current.features,
+      ...input.features,
+    },
     impact: {
       ...current.impact,
       ...input.impact,
@@ -2448,6 +2467,7 @@ export async function updateSettings(input: Partial<SiteStore["settings"]>) {
     .upsert(
       {
         id: "primary",
+        help_applications_enabled: nextSettings.features.helpApplicationsEnabled,
         organization_name: nextSettings.organization.name,
         rc_number: nextSettings.organization.rcNumber,
         tagline: nextSettings.organization.tagline,

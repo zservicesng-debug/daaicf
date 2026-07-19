@@ -13,6 +13,7 @@ import {
   addPartnerApplication,
   addSponsorApplication,
   getFileInputs,
+  getSettings,
 } from "@/lib/store";
 import { sendTransactionalEmail } from "@/lib/resend";
 import { type SponsorSector } from "@/types";
@@ -177,6 +178,15 @@ const helpSchema = z.object({
 });
 
 export async function submitHelpApplication(formData: FormData) {
+  const settings = await getSettings();
+  if (!settings.features.helpApplicationsEnabled) {
+    return flashAndRedirect("/", {
+      type: "error",
+      title: "Help applications are closed",
+      description: "The foundation is not accepting help requests right now.",
+    });
+  }
+
   const parsed = helpSchema.safeParse({
     name: formData.get("name"),
     phone: formData.get("phone"),

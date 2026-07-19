@@ -244,6 +244,9 @@ export interface TeamMember {
 }
 
 export interface SettingsBundle {
+  features: {
+    helpApplicationsEnabled: boolean;
+  };
   impact: {
     communitiesReached: number;
     beneficiariesSupported: number;

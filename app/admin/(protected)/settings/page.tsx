@@ -17,6 +17,26 @@ export default async function AdminSettingsPage() {
       </div>
 
       <form action={saveSettingsAction} className="grid gap-6 xl:grid-cols-2">
+        <Card className="space-y-4 p-6 xl:col-span-2">
+          <h2 className="text-xl font-semibold text-[var(--color-text)]">Front-End Access</h2>
+          <label className="flex flex-col gap-4 rounded-[var(--radius-card)] border border-[var(--color-border)] bg-[var(--color-surface-muted)] p-4 sm:flex-row sm:items-center sm:justify-between">
+            <span>
+              <span className="block text-sm font-semibold text-[var(--color-text)]">
+                Accept help applications
+              </span>
+              <span className="mt-1 block text-sm leading-6 muted-copy">
+                Show the help request page, nav links, homepage prompts, and sitemap entry.
+              </span>
+            </span>
+            <input
+              type="checkbox"
+              name="helpApplicationsEnabled"
+              defaultChecked={settings.features.helpApplicationsEnabled}
+              className="h-6 w-6 accent-[var(--color-primary)]"
+            />
+          </label>
+        </Card>
+
         <Card className="space-y-4 p-6">
           <h2 className="text-xl font-semibold text-[var(--color-text)]">Impact Statistics</h2>
           <div>
