@@ -83,19 +83,51 @@ export function SiteNavbar({
           })}
         </nav>
 
-        <div className="hidden md:flex items-center gap-5">
-          <Link
-            href="/apply/sponsor"
-            className="text-sm font-medium text-white/82 hover:text-white"
-          >
-            Sponsor
-          </Link>
-          <Link
-            href="/apply/partner"
-            className="text-sm font-medium text-white/82 hover:text-white"
-          >
-            Partner
-          </Link>
+        <div
+          className={cn(
+            "hidden md:flex items-center",
+            helpApplicationsEnabled
+              ? "gap-5"
+              : "gap-3 rounded-[var(--radius-pill)] border border-white/12 bg-white/8 p-1.5"
+          )}
+        >
+          {helpApplicationsEnabled ? (
+            <>
+              <Link
+                href="/apply/sponsor"
+                className="text-sm font-medium text-white/82 hover:text-white"
+              >
+                Sponsor
+              </Link>
+              <Link
+                href="/apply/partner"
+                className="text-sm font-medium text-white/82 hover:text-white"
+              >
+                Partner
+              </Link>
+            </>
+          ) : (
+            <>
+              <Link
+                href="/apply/sponsor"
+                className={cn(
+                  buttonClasses({ variant: "primary" }),
+                  "px-4 py-2.5 shadow-[0_10px_24px_rgba(75,12,12,0.22)]"
+                )}
+              >
+                Sponsor
+              </Link>
+              <Link
+                href="/apply/partner"
+                className={cn(
+                  buttonClasses({ variant: "outline" }),
+                  "px-4 py-2.5"
+                )}
+              >
+                Partner
+              </Link>
+            </>
+          )}
           {helpApplicationsEnabled ? (
             <Link href="/apply" className={buttonClasses({ variant: "outline" })}>
               Apply for Help
