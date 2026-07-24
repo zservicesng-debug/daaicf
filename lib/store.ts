@@ -86,6 +86,16 @@ type CommentRow = {
   created_at: string;
 };
 
+type CommentInsertRow = {
+  post_id: string;
+  author_name: string;
+  author_email?: string | null;
+  message: string;
+  status: Comment["status"];
+};
+
+let commentsAuthorEmailColumnAvailable: boolean | undefined;
+
 type ContactMessageRow = {
   id: string;
   name: string;
@@ -360,6 +370,22 @@ function mapComment(row: CommentRow): Comment {
     status: row.status,
     createdAt: row.created_at,
   };
+}
+
+function isMissingCommentAuthorEmailColumn(error: unknown) {
+  if (!error || typeof error !== "object") {
+    return false;
+  }
+
+  const details = ["message", "details", "hint", "code"]
+    .map((key) => {
+      const value = (error as Record<string, unknown>)[key];
+      return typeof value === "string" ? value : "";
+    })
+    .join(" ")
+    .toLowerCase();
+
+  return details.includes("author_email") && details.includes("column");
 }
 
 function mapContactMessage(row: ContactMessageRow): ContactMessage {
@@ -1991,20 +2017,43 @@ export async function addComment(
     return mockStore.addComment(input);
   }
 
-  const { data } = await client
-    .from("comments")
-    .insert({
-      post_id: input.postId,
-      author_name: input.authorName,
-      author_email: input.authorEmail || null,
-      message: input.message,
-      status: "pending",
-    })
-    .select("*")
-    .single()
-    .throwOnError();
+  const commentInsert: CommentInsertRow = {
+    post_id: input.postId,
+    author_name: input.authorName,
+    message: input.message,
+    status: "pending",
+  };
 
-  return mapComment(data as CommentRow);
+  const commentInsertWithEmail: CommentInsertRow = {
+    ...commentInsert,
+    author_email: input.authorEmail || null,
+  };
+
+  const insert = client.from("comments").insert(
+    commentsAuthorEmailColumnAvailable === false
+      ? commentInsert
+      : commentInsertWithEmail
+  );
+
+  try {
+    const { data } = await insert.select("*").single().throwOnError();
+    return mapComment(data as CommentRow);
+  } catch (error) {
+    if (!isMissingCommentAuthorEmailColumn(error)) {
+      throw error;
+    }
+
+    commentsAuthorEmailColumnAvailable = false;
+
+    const { data } = await client
+      .from("comments")
+      .insert(commentInsert)
+      .select("*")
+      .single()
+      .throwOnError();
+
+    return mapComment(data as CommentRow);
+  }
 }
 
 export async function updateCommentStatus(id: string, status: Comment["status"]) {

@@ -45,6 +45,19 @@ function logEmailDeliveryFailure(context: string, result: { delivered: boolean; 
   }
 }
 
+function getPublicSubmissionErrorMessage(error: unknown) {
+  const message = getActionErrorMessage(
+    error,
+    "We could not save your comment right now. Please try again."
+  );
+
+  if (message.toLowerCase().includes("foreign key")) {
+    return "We could not match this comment to the activity. Please reload the page and try again.";
+  }
+
+  return "We could not save your comment right now. Please try again.";
+}
+
 const commentSchema = z.object({
   postId: z.string().min(1),
   postSlug: z.string().min(1),
@@ -72,39 +85,53 @@ export async function submitComment(
     };
   }
 
-  await addComment({
-    postId: parsed.data.postId,
-    authorName: parsed.data.authorName,
-    authorEmail: parsed.data.authorEmail,
-    message: parsed.data.message || "Interested in this activity.",
-  });
+  try {
+    await addComment({
+      postId: parsed.data.postId,
+      authorName: parsed.data.authorName,
+      authorEmail: parsed.data.authorEmail,
+      message: parsed.data.message || "Interested in this activity.",
+    });
+  } catch (error) {
+    console.error("Comment submission failed:", error);
+    return {
+      status: "error" as const,
+      message: getPublicSubmissionErrorMessage(error),
+    };
+  }
 
-  revalidatePath("/activities");
-  revalidatePath(`/activities/${parsed.data.postSlug}`);
+  try {
+    revalidatePath("/activities");
+    revalidatePath(`/activities/${parsed.data.postSlug}`);
+  } catch (error) {
+    console.error("Comment page revalidation failed:", error);
+  }
 
-  const notification = await sendTransactionalEmail({
-    to: getNotificationEmails(),
-    subject: `New Comment from ${parsed.data.authorName}`,
-    html: renderEmailLayout({
-      title: "New activity comment",
-      intro: `${parsed.data.authorName} left a comment that is awaiting review.`,
-      details: [
-        { label: "Name", value: parsed.data.authorName },
-        { label: "Email", value: parsed.data.authorEmail },
-        {
-          label: "Comment",
-          value: parsed.data.message || "Interested in this activity.",
+  try {
+    const notification = await sendTransactionalEmail({
+      to: getNotificationEmails(),
+      subject: `New Comment from ${parsed.data.authorName}`,
+      html: renderEmailLayout({
+        title: "New activity comment",
+        intro: `${parsed.data.authorName} left a comment that is awaiting review.`,
+        details: [
+          { label: "Name", value: parsed.data.authorName },
+          { label: "Email", value: parsed.data.authorEmail },
+          {
+            label: "Comment",
+            value: parsed.data.message || "Interested in this activity.",
+          },
+        ],
+        cta: {
+          label: "Review comments",
+          href: appUrl("/admin/comments"),
         },
-      ],
-      cta: {
-        label: "Review comments",
-        href: appUrl("/admin/comments"),
-      },
-    }),
-  });
+      }),
+    });
 
-  if (!notification.delivered) {
-    console.error("Comment notification email was not delivered:", notification.reason);
+    logEmailDeliveryFailure("Comment notification", notification);
+  } catch (error) {
+    console.error("Comment notification email failed:", error);
   }
 
   return {
