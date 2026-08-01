@@ -50,35 +50,6 @@ export function GalleryLightbox({
   return (
     <>
       <div className="space-y-8">
-        {images.length > 0 ? (
-          <div className="space-y-4">
-            <div className="flex items-center gap-2">
-              <Images className="h-5 w-5 text-[var(--color-primary)]" />
-              <h3 className="text-lg font-semibold text-[var(--color-text)]">Photos</h3>
-              <span className="text-sm muted-copy">({images.length})</span>
-            </div>
-            <div data-reveal-group className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-              {images.map((item) => (
-                <button
-                  key={item.id}
-                  type="button"
-                  data-reveal="zoom"
-                  className="group relative aspect-[4/3] overflow-hidden rounded-[var(--radius-card)] bg-[var(--color-surface-muted)]"
-                  onClick={() => openItem(item)}
-                >
-                  <Image
-                    src={item.imageUrl}
-                    alt={`${category} gallery image from ${year}`}
-                    fill
-                    unoptimized
-                    className="object-cover transition duration-300 group-hover:scale-[1.03]"
-                  />
-                </button>
-              ))}
-            </div>
-          </div>
-        ) : null}
-
         {videos.length > 0 ? (
           <div className="space-y-4">
             <div className="flex items-center gap-2">
@@ -108,6 +79,35 @@ export function GalleryLightbox({
                       <Play className="ml-1 h-6 w-6 fill-current" />
                     </span>
                   </span>
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : null}
+
+        {images.length > 0 ? (
+          <div className="space-y-4">
+            <div className="flex items-center gap-2">
+              <Images className="h-5 w-5 text-[var(--color-primary)]" />
+              <h3 className="text-lg font-semibold text-[var(--color-text)]">Photos</h3>
+              <span className="text-sm muted-copy">({images.length})</span>
+            </div>
+            <div data-reveal-group className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+              {images.map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  data-reveal="zoom"
+                  className="group relative aspect-[4/3] overflow-hidden rounded-[var(--radius-card)] bg-[var(--color-surface-muted)]"
+                  onClick={() => openItem(item)}
+                >
+                  <Image
+                    src={item.imageUrl}
+                    alt={`${category} gallery image from ${year}`}
+                    fill
+                    unoptimized
+                    className="object-cover transition duration-300 group-hover:scale-[1.03]"
+                  />
                 </button>
               ))}
             </div>

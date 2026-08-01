@@ -59,19 +59,29 @@ export default async function GalleryPage(props: PageProps<"/gallery">) {
 
           {groupedItems.length > 0 && activeYear ? (
             <div className="space-y-12">
-              {groupedItems.map((section) => (
-                <section key={section.category} className="space-y-5">
-                  <div>
-                    <h2 className="serif-display text-2xl font-semibold text-[var(--color-text)]">
-                      {section.category}
-                    </h2>
-                    <p className="mt-1 text-sm muted-copy">
-                      {section.items.length} media item{section.items.length === 1 ? "" : "s"}
-                    </p>
-                  </div>
-                  <GalleryLightbox items={section.items} category={section.category} year={activeYear} />
-                </section>
-              ))}
+              {groupedItems.map((section) => {
+                const photoCount = section.items.filter(
+                  (item) => item.mediaType === "image"
+                ).length;
+                const videoCount = section.items.filter(
+                  (item) => item.mediaType === "video"
+                ).length;
+
+                return (
+                  <section key={section.category} className="space-y-5">
+                    <div>
+                      <h2 className="serif-display text-2xl font-semibold text-[var(--color-text)]">
+                        {section.category}
+                      </h2>
+                      <p className="mt-1 text-sm muted-copy">
+                        {photoCount} photo{photoCount === 1 ? "" : "s"} ·{" "}
+                        {videoCount} video{videoCount === 1 ? "" : "s"}
+                      </p>
+                    </div>
+                    <GalleryLightbox items={section.items} category={section.category} year={activeYear} />
+                  </section>
+                );
+              })}
             </div>
           ) : (
             <Card className="p-8">
