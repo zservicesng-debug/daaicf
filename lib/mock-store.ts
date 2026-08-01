@@ -605,6 +605,7 @@ export function getStore() {
 
 export function listPosts(options?: {
   category?: string;
+  search?: string;
   page?: number;
   perPage?: number;
   publishedOnly?: boolean;
@@ -627,6 +628,16 @@ export function listPosts(options?: {
 
   if (options?.category && options.category !== "All") {
     items = items.filter((post) => post.category === options.category);
+  }
+
+  if (options?.search?.trim()) {
+    const search = options.search.trim().toLowerCase();
+    items = items.filter((post) =>
+      [post.title, post.excerpt, post.content, post.category]
+        .join(" ")
+        .toLowerCase()
+        .includes(search)
+    );
   }
 
   const total = items.length;
@@ -878,6 +889,7 @@ function resolveMockGalleryMedia(options: {
   title: string;
   mediaFiles?: File[];
   mediaLinks?: Array<{ url: string; type: GalleryMediaType; path?: string }>;
+  sourcePostId?: string | null;
 }) {
   const mediaFiles = options.mediaFiles || [];
   const mediaLinks = options.mediaLinks || [];
@@ -892,6 +904,7 @@ function resolveMockGalleryMedia(options: {
     caption: `${options.title} ${index + 1}`,
     album: "Health" as SiteStore["gallery"][number]["album"],
     year: galleryYears[0] || new Date().getFullYear(),
+    sourcePostId: options.sourcePostId || null,
     createdAt: new Date().toISOString(),
   }));
 
@@ -914,6 +927,7 @@ function resolveMockGalleryMedia(options: {
       caption: file.name || `${options.title} ${index + 1}`,
       album: "Health" as SiteStore["gallery"][number]["album"],
       year: galleryYears[0] || new Date().getFullYear(),
+      sourcePostId: options.sourcePostId || null,
       createdAt: new Date().toISOString(),
     };
   });
@@ -922,11 +936,12 @@ function resolveMockGalleryMedia(options: {
 }
 
 export function createGalleryCollection(input: {
-  title: string;
+  title?: string | null;
   album: SiteStore["gallery"][number]["album"];
   year: number;
   mediaFiles?: File[];
   mediaLinks?: Array<{ url: string; type: GalleryMediaType }>;
+  sourcePostId?: string | null;
 }) {
   if (!galleryYears.includes(input.year)) {
     throw new Error(
@@ -935,14 +950,22 @@ export function createGalleryCollection(input: {
   }
 
   const collectionId = crypto.randomUUID();
+  const sourcePost = input.sourcePostId
+    ? store.posts.find((post) => post.id === input.sourcePostId)
+    : null;
+  if (input.sourcePostId && !sourcePost) {
+    throw new Error("Choose a valid post to attach this gallery media to.");
+  }
+  const title = input.title?.trim() || sourcePost?.title || `${input.album} ${input.year}`;
   const media = resolveMockGalleryMedia({
-    title: input.title,
+    title,
     mediaFiles: input.mediaFiles,
     mediaLinks: input.mediaLinks,
+    sourcePostId: sourcePost?.id || null,
   }).map((item) => ({
     ...item,
     collectionId,
-    collectionTitle: input.title,
+    collectionTitle: title,
     album: input.album,
     year: input.year,
   }));
@@ -959,6 +982,8 @@ export function uploadGalleryMedia(input: {
   album: SiteStore["gallery"][number]["album"];
   year: number;
   mediaLinks: Array<{ url: string; type: GalleryMediaType; path?: string }>;
+  title?: string | null;
+  sourcePostId?: string | null;
 }) {
   if (!galleryYears.includes(input.year)) {
     throw new Error(
@@ -966,18 +991,31 @@ export function uploadGalleryMedia(input: {
     );
   }
 
-  const existing = store.gallery.find(
-    (item) => item.album === input.album && item.year === input.year
-  );
+  const sourcePost = input.sourcePostId
+    ? store.posts.find((post) => post.id === input.sourcePostId)
+    : null;
+  if (input.sourcePostId && !sourcePost) {
+    throw new Error("Choose a valid post to attach this gallery media to.");
+  }
+  const title = input.title?.trim() || sourcePost?.title || `${input.album} ${input.year}`;
+  const shouldUseExistingCollection = !input.title?.trim() && !sourcePost;
+  const existing = shouldUseExistingCollection
+    ? store.gallery.find(
+        (item) =>
+          item.album === input.album &&
+          item.year === input.year &&
+          !item.sourcePostId
+      )
+    : null;
   const collectionId = existing?.collectionId || crypto.randomUUID();
-  const internalLabel = `${input.album} ${input.year}`;
   const media = resolveMockGalleryMedia({
-    title: internalLabel,
+    title,
     mediaLinks: input.mediaLinks,
+    sourcePostId: sourcePost?.id || null,
   }).map((item) => ({
     ...item,
     collectionId,
-    collectionTitle: internalLabel,
+    collectionTitle: title,
     album: input.album,
     year: input.year,
   }));
@@ -993,9 +1031,10 @@ export function uploadGalleryMedia(input: {
 export function updateGalleryCollection(
   collectionId: string,
   input: {
-    title: string;
+    title?: string | null;
     album: SiteStore["gallery"][number]["album"];
     year: number;
+    sourcePostId?: string | null;
   }
 ) {
   if (!galleryYears.includes(input.year)) {
@@ -1005,6 +1044,13 @@ export function updateGalleryCollection(
   }
 
   let changed = false;
+  const sourcePost = input.sourcePostId
+    ? store.posts.find((post) => post.id === input.sourcePostId)
+    : null;
+  if (input.sourcePostId && !sourcePost) {
+    throw new Error("Choose a valid post to attach this gallery media to.");
+  }
+  const title = input.title?.trim() || sourcePost?.title || `${input.album} ${input.year}`;
 
   store.gallery = store.gallery.map((item) => {
     if (item.collectionId !== collectionId) {
@@ -1014,9 +1060,10 @@ export function updateGalleryCollection(
     changed = true;
     return {
       ...item,
-      collectionTitle: input.title,
+      collectionTitle: title,
       album: input.album,
       year: input.year,
+      sourcePostId: sourcePost?.id || null,
     };
   });
 
@@ -1039,12 +1086,14 @@ export function addGalleryCollectionMedia(
     title: collection.title,
     mediaFiles: input.mediaFiles,
     mediaLinks: input.mediaLinks,
+    sourcePostId: collection.sourcePostId || null,
   }).map((item) => ({
     ...item,
     collectionId: collection.id,
     collectionTitle: collection.title,
     album: collection.album,
     year: collection.year,
+    sourcePostId: collection.sourcePostId || null,
   }));
 
   if (media.length === 0) {

@@ -339,6 +339,7 @@ function mapGalleryCollections(items: GalleryImage[]): GalleryCollection[] {
       title: item.collectionTitle,
       album: item.album,
       year: item.year,
+      sourcePostId: item.sourcePostId || null,
       items: [item],
       createdAt: item.createdAt,
     });
@@ -962,6 +963,27 @@ type ResolvedGalleryMediaInput = {
   caption: string;
 };
 
+async function resolveGalleryCollectionDetails(input: {
+  title?: string | null;
+  album: SiteStore["gallery"][number]["album"];
+  year: number;
+  sourcePostId?: string | null;
+}) {
+  const sourcePost = await getPostById(input.sourcePostId);
+
+  if (input.sourcePostId && !sourcePost) {
+    throw new Error("Choose a valid post to attach this gallery media to.");
+  }
+
+  return {
+    title:
+      input.title?.trim() ||
+      sourcePost?.title ||
+      `${input.album} ${input.year}`,
+    sourcePostId: sourcePost?.id || null,
+  };
+}
+
 async function resolveGalleryMediaInputs(options: {
   title: string;
   mediaFiles?: File[];
@@ -1202,6 +1224,7 @@ export async function getStore(): Promise<SiteStore> {
 
 export async function listPosts(options?: {
   category?: string;
+  search?: string;
   page?: number;
   perPage?: number;
   publishedOnly?: boolean;
@@ -1234,6 +1257,12 @@ export async function listPosts(options?: {
   if (options?.homeOnly) {
     query = query.eq("show_on_home", true);
   }
+  if (options?.search?.trim()) {
+    const search = options.search.trim().replaceAll("%", "\\%").replaceAll("_", "\\_");
+    query = query.or(
+      `title.ilike.%${search}%,excerpt.ilike.%${search}%,content.ilike.%${search}%`
+    );
+  }
 
   const { data, count } = await query
     .order("created_at", { ascending: false })
@@ -1265,6 +1294,35 @@ export async function getPostBySlug(slug: string): Promise<Post | null> {
     .from("posts")
     .select("*")
     .eq("slug", slug)
+    .maybeSingle()
+    .throwOnError();
+
+  return data ? mapPost(data as PostRow) : null;
+}
+
+async function getPostById(id?: string | null): Promise<Post | null> {
+  if (!id) {
+    return null;
+  }
+
+  const mock = maybeUseMock(() => {
+    const posts = mockStore.listPosts({ perPage: 500 }).items;
+    return posts.find((post) => post.id === id) || null;
+  });
+  if (mock !== MOCK_UNSET) {
+    return mock;
+  }
+
+  const client = getAdminClient();
+  if (!client) {
+    const posts = mockStore.listPosts({ perPage: 500 }).items;
+    return posts.find((post) => post.id === id) || null;
+  }
+
+  const { data } = await client
+    .from("posts")
+    .select("*")
+    .eq("id", id)
     .maybeSingle()
     .throwOnError();
 
@@ -1621,11 +1679,12 @@ export async function getGalleryCollectionById(
 }
 
 export async function createGalleryCollection(input: {
-  title: string;
+  title?: string | null;
   album: SiteStore["gallery"][number]["album"];
   year: number;
   mediaFiles?: File[];
   mediaLinks?: GalleryLinkInput[];
+  sourcePostId?: string | null;
 }) {
   const mock = maybeUseMock(() =>
     mockStore.createGalleryCollection({
@@ -1634,6 +1693,7 @@ export async function createGalleryCollection(input: {
       year: input.year,
       mediaFiles: input.mediaFiles,
       mediaLinks: input.mediaLinks,
+      sourcePostId: input.sourcePostId,
     })
   );
   if (mock !== MOCK_UNSET) {
@@ -1648,6 +1708,7 @@ export async function createGalleryCollection(input: {
       year: input.year,
       mediaFiles: input.mediaFiles,
       mediaLinks: input.mediaLinks,
+      sourcePostId: input.sourcePostId,
     });
   }
 
@@ -1659,8 +1720,9 @@ export async function createGalleryCollection(input: {
   }
 
   const collectionId = crypto.randomUUID();
+  const details = await resolveGalleryCollectionDetails(input);
   const media = await resolveGalleryMediaInputs({
-    title: input.title,
+    title: details.title,
     mediaFiles: input.mediaFiles,
     mediaLinks: input.mediaLinks,
   });
@@ -1677,10 +1739,11 @@ export async function createGalleryCollection(input: {
         image_path: item.imagePath,
         caption: item.caption,
         collection_id: collectionId,
-        collection_title: input.title,
+        collection_title: details.title,
         media_type: item.mediaType,
         album: input.album,
         gallery_year: input.year,
+        source_post_id: details.sourcePostId,
       }))
     )
     .select("*")
@@ -1693,6 +1756,8 @@ export async function uploadGalleryMedia(input: {
   album: SiteStore["gallery"][number]["album"];
   year: number;
   mediaLinks: GalleryLinkInput[];
+  title?: string | null;
+  sourcePostId?: string | null;
 }) {
   const mock = maybeUseMock(() => mockStore.uploadGalleryMedia(input));
   if (mock !== MOCK_UNSET) {
@@ -1715,21 +1780,27 @@ export async function uploadGalleryMedia(input: {
     throw new Error("Choose at least one image or video before publishing.");
   }
 
-  const { data: existing } = await client
-    .from("gallery_images")
-    .select("collection_id")
-    .eq("album", input.album)
-    .eq("gallery_year", input.year)
-    .order("created_at", { ascending: true })
-    .limit(1)
-    .maybeSingle()
-    .throwOnError();
+  const details = await resolveGalleryCollectionDetails(input);
+  const shouldUseExistingCollection = !input.title?.trim() && !details.sourcePostId;
+  let collectionId = crypto.randomUUID();
 
-  const collectionId =
-    (existing?.collection_id as string | undefined) || crypto.randomUUID();
-  const internalLabel = `${input.album} ${input.year}`;
+  if (shouldUseExistingCollection) {
+    const { data: existing } = await client
+      .from("gallery_images")
+      .select("collection_id")
+      .eq("album", input.album)
+      .eq("gallery_year", input.year)
+      .is("source_post_id", null)
+      .order("created_at", { ascending: true })
+      .limit(1)
+      .maybeSingle()
+      .throwOnError();
+
+    collectionId = (existing?.collection_id as string | undefined) || collectionId;
+  }
+
   const media = await resolveGalleryMediaInputs({
-    title: internalLabel,
+    title: details.title,
     mediaLinks: input.mediaLinks,
   });
 
@@ -1741,10 +1812,11 @@ export async function uploadGalleryMedia(input: {
         image_path: item.imagePath,
         caption: "",
         collection_id: collectionId,
-        collection_title: internalLabel,
+        collection_title: details.title,
         media_type: item.mediaType,
         album: input.album,
         gallery_year: input.year,
+        source_post_id: details.sourcePostId,
       }))
     )
     .select("*")
@@ -1756,9 +1828,10 @@ export async function uploadGalleryMedia(input: {
 export async function updateGalleryCollection(
   collectionId: string,
   input: {
-    title: string;
+    title?: string | null;
     album: SiteStore["gallery"][number]["album"];
     year: number;
+    sourcePostId?: string | null;
   }
 ) {
   const mock = maybeUseMock(() =>
@@ -1780,12 +1853,15 @@ export async function updateGalleryCollection(
     );
   }
 
+  const details = await resolveGalleryCollectionDetails(input);
+
   await client
     .from("gallery_images")
     .update({
-      collection_title: input.title,
+      collection_title: details.title,
       album: input.album,
       gallery_year: input.year,
+      source_post_id: details.sourcePostId,
     })
     .eq("collection_id", collectionId)
     .throwOnError();
@@ -1839,6 +1915,7 @@ export async function addGalleryCollectionMedia(
         media_type: item.mediaType,
         album: collection.album,
         gallery_year: collection.year,
+        source_post_id: collection.sourcePostId || null,
       }))
     )
     .throwOnError();
@@ -1895,9 +1972,7 @@ export async function removeGalleryItem(id: string) {
   }
 
   await client.from("gallery_images").delete().eq("id", id).throwOnError();
-  if (!existing.source_post_id) {
-    await removeStorageFile(existing.image_path as string | null);
-  }
+  await removeStorageFile(existing.image_path as string | null);
 
   const { count } = await client
     .from("gallery_images")
@@ -1946,7 +2021,6 @@ export async function removeGalleryCollection(collectionId: string) {
     .throwOnError();
   await removeStorageFiles(
     rows
-      .filter((row) => !row.source_post_id)
       .map((row) => row.image_path)
       .filter(Boolean) as string[]
   );

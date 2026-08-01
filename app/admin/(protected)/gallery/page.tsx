@@ -1,4 +1,5 @@
 import Image from "next/image";
+import Link from "next/link";
 import {
   addGalleryYearAction,
   deleteGalleryItemAction,
@@ -10,7 +11,7 @@ import { Card } from "@/components/ui/card";
 import { ConfirmActionModal } from "@/components/ui/confirm-action-modal";
 import { TextInput } from "@/components/ui/field";
 import { SubmitButton } from "@/components/ui/submit-button";
-import { listGallery, listGalleryYears } from "@/lib/store";
+import { listGallery, listGalleryYears, listPosts } from "@/lib/store";
 import { type GalleryAlbum } from "@/types";
 
 const galleryCategories: GalleryAlbum[] = [
@@ -26,7 +27,15 @@ const galleryCategories: GalleryAlbum[] = [
 ];
 
 export default async function AdminGalleryPage() {
-  const [media, galleryYears] = await Promise.all([listGallery(), listGalleryYears()]);
+  const [media, galleryYears, postsResult] = await Promise.all([
+    listGallery(),
+    listGalleryYears(),
+    listPosts({ perPage: 500 }),
+  ]);
+  const postOptions = postsResult.items.map((post) => ({
+    id: post.id,
+    title: post.title,
+  }));
   const populatedYears = Array.from(new Set(media.map((item) => item.year))).sort(
     (left, right) => right - left
   );
@@ -59,6 +68,7 @@ export default async function AdminGalleryPage() {
                 action={uploadGalleryMediaAction}
                 galleryYears={galleryYears}
                 initialYear={defaultYear}
+                postOptions={postOptions}
               />
             </div>
           ) : (
@@ -147,18 +157,31 @@ export default async function AdminGalleryPage() {
                               )}
                             </div>
                             <div className="flex items-center justify-between gap-3 p-3">
-                              <span className="text-sm font-medium text-[var(--color-text)]">
-                                {item.mediaType === "video" ? "Video" : "Image"}
-                              </span>
-                              <ConfirmActionModal
-                                action={deleteItem}
-                                title="Delete gallery media?"
-                                description="This media item will be permanently removed from the gallery. Posts will not be affected."
-                                trigger="Delete"
-                                triggerClassName="!px-3 !py-2 text-xs"
-                                confirmLabel="Delete Media"
-                                submitToastTitle="Deleting gallery media"
-                              />
+                              <div className="min-w-0">
+                                <p className="truncate text-sm font-medium text-[var(--color-text)]">
+                                  {item.collectionTitle || (item.mediaType === "video" ? "Video" : "Image")}
+                                </p>
+                                <p className="mt-1 text-xs muted-copy">
+                                  {item.mediaType === "video" ? "Video" : "Image"}
+                                </p>
+                              </div>
+                              <div className="flex shrink-0 items-center gap-2">
+                                <Link
+                                  href={`/admin/gallery/${item.collectionId}`}
+                                  className="text-xs font-semibold text-[var(--color-primary)]"
+                                >
+                                  Edit
+                                </Link>
+                                <ConfirmActionModal
+                                  action={deleteItem}
+                                  title="Delete gallery media?"
+                                  description="This media item will be permanently removed from the gallery. Posts will not be affected."
+                                  trigger="Delete"
+                                  triggerClassName="!px-3 !py-2 text-xs"
+                                  confirmLabel="Delete Media"
+                                  submitToastTitle="Deleting gallery media"
+                                />
+                              </div>
                             </div>
                           </Card>
                         );

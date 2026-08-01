@@ -59,27 +59,30 @@ export function GalleryLightbox({
             </div>
             <div data-reveal-group className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
               {videos.map((item) => (
-                <button
-                  key={item.id}
-                  type="button"
-                  data-reveal="zoom"
-                  className="group relative aspect-video overflow-hidden rounded-[var(--radius-card)] bg-black"
-                  onClick={() => openItem(item)}
-                  aria-label={`Play ${category} gallery video from ${year}`}
-                >
-                  <video
-                    src={item.imageUrl}
-                    className="h-full w-full object-cover opacity-90 transition duration-300 group-hover:scale-[1.02]"
-                    muted
-                    playsInline
-                    preload="metadata"
-                  />
-                  <span className="absolute inset-0 grid place-items-center bg-black/15">
-                    <span className="grid h-14 w-14 place-items-center rounded-full bg-white/90 text-[var(--color-primary)] shadow-lg transition group-hover:scale-105">
-                      <Play className="ml-1 h-6 w-6 fill-current" />
+                <div key={item.id} data-reveal="zoom" className="space-y-2">
+                  <button
+                    type="button"
+                    className="group relative aspect-video w-full overflow-hidden rounded-[var(--radius-card)] bg-black"
+                    onClick={() => openItem(item)}
+                    aria-label={`Play ${item.collectionTitle || category} gallery video from ${year}`}
+                  >
+                    <video
+                      src={item.imageUrl}
+                      className="h-full w-full object-cover opacity-90 transition duration-300 group-hover:scale-[1.02]"
+                      muted
+                      playsInline
+                      preload="metadata"
+                    />
+                    <span className="absolute inset-0 grid place-items-center bg-black/15">
+                      <span className="grid h-14 w-14 place-items-center rounded-full bg-white/90 text-[var(--color-primary)] shadow-lg transition group-hover:scale-105">
+                        <Play className="ml-1 h-6 w-6 fill-current" />
+                      </span>
                     </span>
-                  </span>
-                </button>
+                  </button>
+                  <p className="line-clamp-2 text-sm font-semibold text-[var(--color-text)]">
+                    {item.collectionTitle || `${category} video`}
+                  </p>
+                </div>
               ))}
             </div>
           </div>
@@ -94,21 +97,24 @@ export function GalleryLightbox({
             </div>
             <div data-reveal-group className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
               {images.map((item) => (
-                <button
-                  key={item.id}
-                  type="button"
-                  data-reveal="zoom"
-                  className="group relative aspect-[4/3] overflow-hidden rounded-[var(--radius-card)] bg-[var(--color-surface-muted)]"
-                  onClick={() => openItem(item)}
-                >
-                  <Image
-                    src={item.imageUrl}
-                    alt={`${category} gallery image from ${year}`}
-                    fill
-                    unoptimized
-                    className="object-cover transition duration-300 group-hover:scale-[1.03]"
-                  />
-                </button>
+                <div key={item.id} data-reveal="zoom" className="space-y-2">
+                  <button
+                    type="button"
+                    className="group relative aspect-[4/3] w-full overflow-hidden rounded-[var(--radius-card)] bg-[var(--color-surface-muted)]"
+                    onClick={() => openItem(item)}
+                  >
+                    <Image
+                      src={item.imageUrl}
+                      alt={item.collectionTitle || `${category} gallery image from ${year}`}
+                      fill
+                      unoptimized
+                      className="object-cover transition duration-300 group-hover:scale-[1.03]"
+                    />
+                  </button>
+                  <p className="line-clamp-2 text-sm font-semibold text-[var(--color-text)]">
+                    {item.collectionTitle || `${category} photo`}
+                  </p>
+                </div>
               ))}
             </div>
           </div>

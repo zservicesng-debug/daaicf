@@ -98,6 +98,7 @@ export interface GalleryCollection {
   title: string;
   album: GalleryAlbum;
   year: number;
+  sourcePostId?: string | null;
   items: GalleryImage[];
   createdAt: string;
 }

@@ -33,10 +33,12 @@ export function GalleryUploadForm({
   action,
   galleryYears,
   initialYear,
+  postOptions = [],
 }: {
   action: (formData: FormData) => void | Promise<void>;
   galleryYears: number[];
   initialYear?: number;
+  postOptions?: Array<{ id: string; title: string }>;
 }) {
   const [files, setFiles] = useState<File[]>([]);
   const [uploadError, setUploadError] = useState("");
@@ -142,8 +144,10 @@ export function GalleryUploadForm({
     }
 
     const publishData = new FormData();
+    publishData.set("title", String(formData.get("title") || ""));
     publishData.set("album", String(formData.get("album") || ""));
     publishData.set("year", String(formData.get("year") || ""));
+    publishData.set("sourcePostId", String(formData.get("sourcePostId") || ""));
     uploaded.forEach((item) => {
       publishData.append("mediaLinks", item.url);
       publishData.append("mediaLinkTypes", item.type);
@@ -167,6 +171,17 @@ export function GalleryUploadForm({
       data-submit-toast-title="Publishing gallery media"
     >
       <div className="grid gap-4 md:grid-cols-2">
+        <div className="md:col-span-2">
+          <label className="mb-2 block text-sm font-semibold">Gallery Title</label>
+          <TextInput
+            name="title"
+            placeholder="Optional title for this gallery batch"
+            maxLength={120}
+          />
+          <p className="mt-2 text-sm muted-copy">
+            Leave blank to use the selected post title or the category and year.
+          </p>
+        </div>
         <div>
           <label className="mb-2 block text-sm font-semibold">General Category</label>
           <SelectInput name="album" defaultValue="Health">
@@ -189,6 +204,20 @@ export function GalleryUploadForm({
               </option>
             ))}
           </SelectInput>
+        </div>
+        <div className="md:col-span-2">
+          <label className="mb-2 block text-sm font-semibold">Attach to Post</label>
+          <SelectInput name="sourcePostId" defaultValue="">
+            <option value="">No linked post</option>
+            {postOptions.map((post) => (
+              <option key={post.id} value={post.id}>
+                {post.title}
+              </option>
+            ))}
+          </SelectInput>
+          <p className="mt-2 text-sm muted-copy">
+            Optional. Link this gallery batch to an existing activity post.
+          </p>
         </div>
       </div>
 

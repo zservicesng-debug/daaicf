@@ -99,7 +99,7 @@ const allowedPartnerPermissionKeys = new Set([
 ]);
 
 const galleryCollectionSchema = z.object({
-  title: z.string().trim().min(2).max(120),
+  title: z.string().trim().max(120).optional(),
   album: z.enum([
     "Health",
     "Education",
@@ -112,6 +112,7 @@ const galleryCollectionSchema = z.object({
     "Scholarship",
   ]),
   year: galleryYearSchema,
+  sourcePostId: z.string().trim().uuid().optional().or(z.literal("")),
 });
 
 const galleryUploadSchema = galleryCollectionSchema.omit({ title: true });
@@ -253,6 +254,11 @@ function parseGalleryMediaLinks(formData: FormData) {
   }
 
   return parsedLinks;
+}
+
+function optionalString(value: unknown) {
+  const normalized = String(value || "").trim();
+  return normalized || null;
 }
 
 function parseImageLinks(rawValues: string[]) {
@@ -1008,6 +1014,7 @@ export async function createGalleryCollectionAction(formData: FormData) {
     title: formData.get("title"),
     album: formData.get("album"),
     year: formData.get("year"),
+    sourcePostId: formData.get("sourcePostId") || "",
   });
   const data = parsed.success ? parsed.data : null;
 
@@ -1048,6 +1055,7 @@ export async function createGalleryCollectionAction(formData: FormData) {
       year: data.year,
       mediaFiles,
       mediaLinks,
+      sourcePostId: optionalString(data.sourcePostId),
     });
 
     revalidatePath("/admin/gallery");
@@ -1074,6 +1082,7 @@ export async function uploadGalleryMediaAction(formData: FormData) {
   const parsed = galleryUploadSchema.safeParse({
     album: formData.get("album"),
     year: formData.get("year"),
+    sourcePostId: formData.get("sourcePostId") || "",
   });
 
   if (!parsed.success) {
@@ -1109,6 +1118,8 @@ export async function uploadGalleryMediaAction(formData: FormData) {
       album: parsed.data.album,
       year: parsed.data.year,
       mediaLinks,
+      title: optionalString(formData.get("title")),
+      sourcePostId: optionalString(parsed.data.sourcePostId),
     });
   } catch (error) {
     await flashAndRedirect("/admin/gallery", {
@@ -1187,6 +1198,7 @@ export async function updateGalleryCollectionAction(
     title: formData.get("title"),
     album: formData.get("album"),
     year: formData.get("year"),
+    sourcePostId: formData.get("sourcePostId") || "",
   });
   const data = parsed.success ? parsed.data : null;
 
