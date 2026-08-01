@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Film, Images, Upload } from "lucide-react";
 import { SelectInput, TextInput } from "@/components/ui/field";
 import { SubmitButton } from "@/components/ui/submit-button";
+import { useToast } from "@/components/ui/toast-provider";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { type GalleryAlbum, type GalleryMediaType } from "@/types";
 
@@ -39,6 +40,7 @@ export function GalleryUploadForm({
 }) {
   const [files, setFiles] = useState<File[]>([]);
   const [uploadError, setUploadError] = useState("");
+  const { toast } = useToast();
 
   const imageCount = files.filter((file) => file.type.startsWith("image/")).length;
   const videoCount = files.filter((file) => file.type.startsWith("video/")).length;
@@ -149,6 +151,13 @@ export function GalleryUploadForm({
     });
 
     await action(publishData);
+
+    toast({
+      type: "success",
+      title: "Gallery media published",
+      description: `${uploaded.length} media item${uploaded.length === 1 ? "" : "s"} added to the gallery.`,
+    });
+    setFiles([]);
   }
 
   return (
