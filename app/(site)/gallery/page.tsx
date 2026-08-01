@@ -84,7 +84,7 @@ export default async function GalleryPage(props: PageProps<"/gallery">) {
                   name="q"
                   defaultValue={searchQuery}
                   placeholder="Search gallery titles, categories, photos, or videos"
-                  className="input-shell pl-11"
+                  className="input-shell !pl-12"
                 />
               </label>
               <button

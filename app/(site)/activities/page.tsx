@@ -100,7 +100,7 @@ export default async function ActivitiesPage(props: PageProps<"/activities">) {
                 name="q"
                 defaultValue={searchQuery}
                 placeholder="Search activities by title, category, or story"
-                className="input-shell pl-11"
+                className="input-shell !pl-12"
               />
             </label>
             <button
