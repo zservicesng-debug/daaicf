@@ -687,6 +687,10 @@ async function removeStorageFiles(paths?: string[] | null) {
   await Promise.all(paths.map((path) => removeStorageFile(path)));
 }
 
+function isGalleryOwnedStoragePath(path?: string | null) {
+  return Boolean(path?.startsWith("gallery/"));
+}
+
 async function ensureUniqueSlug(baseSlug: string, excludeId?: string) {
   const client = getAdminClient();
   if (!client) {
@@ -1615,6 +1619,31 @@ export async function listGallery(options?: {
   return (data as GalleryRow[]).map(mapGallery);
 }
 
+export async function listGalleryForPost(postId: string): Promise<GalleryImage[]> {
+  noStore();
+
+  const mock = maybeUseMock(() =>
+    mockStore.listGallery().filter((item) => item.sourcePostId === postId)
+  );
+  if (mock !== MOCK_UNSET) {
+    return mock;
+  }
+
+  const client = getAdminClient();
+  if (!client) {
+    return mockStore.listGallery().filter((item) => item.sourcePostId === postId);
+  }
+
+  const { data } = await client
+    .from("gallery_images")
+    .select("*")
+    .eq("source_post_id", postId)
+    .order("created_at", { ascending: false })
+    .throwOnError();
+
+  return (data as GalleryRow[]).map(mapGallery);
+}
+
 export async function listGalleryCollections(options?: {
   album?: string;
   year?: number;
@@ -1972,7 +2001,10 @@ export async function removeGalleryItem(id: string) {
   }
 
   await client.from("gallery_images").delete().eq("id", id).throwOnError();
-  await removeStorageFile(existing.image_path as string | null);
+  const imagePath = existing.image_path as string | null;
+  if (isGalleryOwnedStoragePath(imagePath)) {
+    await removeStorageFile(imagePath);
+  }
 
   const { count } = await client
     .from("gallery_images")
@@ -2022,7 +2054,7 @@ export async function removeGalleryCollection(collectionId: string) {
   await removeStorageFiles(
     rows
       .map((row) => row.image_path)
-      .filter(Boolean) as string[]
+      .filter(isGalleryOwnedStoragePath) as string[]
   );
 }
 

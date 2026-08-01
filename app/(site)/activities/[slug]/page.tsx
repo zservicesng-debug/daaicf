@@ -3,11 +3,14 @@ import { ArrowLeft, CalendarDays } from "lucide-react";
 import type { Metadata } from "next";
 import { FullCommentForm } from "@/components/public/comment-form";
 import { PostContentWithImages } from "@/components/public/post-content-with-images";
-import { PostGalleryLightbox } from "@/components/public/post-gallery-lightbox";
+import {
+  PostGalleryLightbox,
+  type PostGalleryMedia,
+} from "@/components/public/post-gallery-lightbox";
 import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
 import { getSocialLinks } from "@/lib/social";
-import { getPostBySlug, listComments } from "@/lib/store";
+import { getPostBySlug, listComments, listGalleryForPost } from "@/lib/store";
 import { distributePostGalleryImages } from "@/lib/post-content";
 import { categoryTone, cn, excerpt, formatDate } from "@/lib/utils";
 import { notFound } from "next/navigation";
@@ -91,12 +94,40 @@ export default async function ActivityDetailPage(
         ? "Back to activities"
         : "Go back";
 
-  const comments = (await listComments(post.id)).filter(
-    (comment) => comment.status === "approved"
-  );
+  const [comments, attachedGalleryMedia] = await Promise.all([
+    listComments(post.id).then((items) =>
+      items.filter((comment) => comment.status === "approved")
+    ),
+    listGalleryForPost(post.id),
+  ]);
   const socialLinks = getSocialLinks(post.socialLinks);
   const { contentSegments, inlineImageUrls, remainingImageUrls } =
     distributePostGalleryImages(post.content, post.galleryImageUrls);
+  const existingPostMediaUrls = new Set([
+    post.coverImageUrl,
+    ...post.galleryImageUrls,
+  ]);
+  const linkedGalleryMedia = attachedGalleryMedia
+    .filter((item) => !existingPostMediaUrls.has(item.imageUrl))
+    .map(
+      (item): PostGalleryMedia => ({
+        id: item.id,
+        url: item.imageUrl,
+        type: item.mediaType,
+        title: item.collectionTitle || item.caption || post.title,
+      })
+    );
+  const moreMedia: PostGalleryMedia[] = [
+    ...remainingImageUrls.map((url, index) => ({
+      id: `post-photo-${index + 1}-${url}`,
+      url,
+      type: "image" as const,
+      title: post.title,
+    })),
+    ...linkedGalleryMedia,
+  ];
+  const morePhotoCount = moreMedia.filter((item) => item.type === "image").length;
+  const moreVideoCount = moreMedia.length - morePhotoCount;
 
   return (
     <article className="bg-white">
@@ -150,20 +181,20 @@ export default async function ActivityDetailPage(
           />
         </div>
 
-        {remainingImageUrls.length > 0 ? (
+        {moreMedia.length > 0 ? (
           <section className="mx-auto mt-10 max-w-4xl">
             <div className="card-surface p-6 md:p-8">
               <h2 className="serif-display text-3xl font-semibold text-[var(--color-text)]">
-                More Photos
+                More Photos & Videos
               </h2>
               <p className="mt-2 text-sm muted-copy">
                 Additional moments from this outreach and activity. Showing{" "}
-                {remainingImageUrls.length} photo
-                {remainingImageUrls.length === 1 ? "" : "s"}.
+                {morePhotoCount} photo{morePhotoCount === 1 ? "" : "s"} and{" "}
+                {moreVideoCount} video{moreVideoCount === 1 ? "" : "s"}.
               </p>
               <PostGalleryLightbox
                 title={post.title}
-                imageUrls={remainingImageUrls}
+                media={moreMedia}
               />
             </div>
           </section>
