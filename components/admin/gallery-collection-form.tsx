@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Film, Images, Upload } from "lucide-react";
 import { SelectInput, TextInput } from "@/components/ui/field";
 import { SubmitButton } from "@/components/ui/submit-button";
+import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { type GalleryAlbum, type GalleryMediaType } from "@/types";
 
 const albumOptions: GalleryAlbum[] = [
@@ -24,6 +25,9 @@ type UploadedMedia = {
   type: GalleryMediaType;
 };
 
+const GALLERY_MAX_FILE_SIZE = 50 * 1024 * 1024;
+const UPLOAD_CONCURRENCY = 3;
+
 export function GalleryUploadForm({
   action,
   galleryYears,
@@ -39,6 +43,57 @@ export function GalleryUploadForm({
   const imageCount = files.filter((file) => file.type.startsWith("image/")).length;
   const videoCount = files.filter((file) => file.type.startsWith("video/")).length;
 
+  async function uploadGalleryFile(
+    file: File,
+    client: NonNullable<ReturnType<typeof createSupabaseBrowserClient>>
+  ) {
+    const response = await fetch("/api/admin/uploads/sign", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: file.name,
+        type: file.type,
+        size: file.size,
+        folder: "gallery",
+      }),
+    });
+    const result = (await response.json().catch(() => null)) as
+      | {
+          bucket?: string;
+          url?: string;
+          path?: string;
+          token?: string;
+          error?: string;
+        }
+      | null;
+
+    if (
+      !response.ok ||
+      !result?.bucket ||
+      !result.url ||
+      !result.path ||
+      !result.token
+    ) {
+      throw new Error(result?.error || `Could not prepare ${file.name}.`);
+    }
+
+    const { error } = await client.storage
+      .from(result.bucket)
+      .uploadToSignedUrl(result.path, result.token, file, {
+        contentType: file.type,
+      });
+
+    if (error) {
+      throw error;
+    }
+
+    return {
+      url: result.url,
+      path: result.path,
+      type: file.type.startsWith("video/") ? "video" : "image",
+    } satisfies UploadedMedia;
+  }
+
   async function publishBatch(formData: FormData) {
     setUploadError("");
 
@@ -47,37 +102,33 @@ export function GalleryUploadForm({
       return;
     }
 
+    const unsupportedFile = files.find(
+      (file) => !file.type.startsWith("image/") && !file.type.startsWith("video/")
+    );
+    if (unsupportedFile) {
+      setUploadError("Only image and video files can be published to the gallery.");
+      return;
+    }
+
+    const oversizedFile = files.find((file) => file.size > GALLERY_MAX_FILE_SIZE);
+    if (oversizedFile) {
+      setUploadError("Gallery files must be 50 MB or smaller.");
+      return;
+    }
+
+    const client = createSupabaseBrowserClient();
+    if (!client) {
+      setUploadError("Supabase storage is not configured for uploads.");
+      return;
+    }
+
     let uploaded: UploadedMedia[];
     try {
       uploaded = [];
-      for (let start = 0; start < files.length; start += 3) {
-        const batch = files.slice(start, start + 3);
+      for (let start = 0; start < files.length; start += UPLOAD_CONCURRENCY) {
+        const batch = files.slice(start, start + UPLOAD_CONCURRENCY);
         const completed = await Promise.all(
-          batch.map(async (file) => {
-            const uploadData = new FormData();
-            uploadData.set("file", file);
-            uploadData.set("folder", "gallery");
-
-            const response = await fetch("/api/admin/uploads", {
-              method: "POST",
-              body: uploadData,
-            });
-            const result = (await response.json()) as {
-              url?: string;
-              path?: string;
-              error?: string;
-            };
-
-            if (!response.ok || !result.url || !result.path) {
-              throw new Error(result.error || `Could not upload ${file.name}.`);
-            }
-
-            return {
-              url: result.url,
-              path: result.path,
-              type: file.type.startsWith("video/") ? "video" : "image",
-            } satisfies UploadedMedia;
-          })
+          batch.map((file) => uploadGalleryFile(file, client))
         );
         uploaded.push(...completed);
       }
