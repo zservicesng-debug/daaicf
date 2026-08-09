@@ -2,8 +2,18 @@ function trimTrailingSlash(value: string) {
   return value.replace(/\/+$/, "");
 }
 
+function normalizeAbsoluteUrl(value: string) {
+  const trimmed = trimTrailingSlash(value.trim());
+
+  if (/^https?:\/\//i.test(trimmed)) {
+    return trimmed;
+  }
+
+  return `https://${trimmed.replace(/^\/+/, "")}`;
+}
+
 export function getAppBaseUrl() {
-  return trimTrailingSlash(
+  return normalizeAbsoluteUrl(
     process.env.APP_BASE_URL ||
       process.env.NEXT_PUBLIC_SITE_URL ||
       process.env.PORTAL_INVITE_REDIRECT_TO?.replace(/\/auth\/invite.*$/, "") ||
