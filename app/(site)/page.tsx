@@ -24,7 +24,7 @@ import {
   FOUNDATION_REGISTERED_YEAR,
 } from "@/lib/foundation";
 import { buildPageMetadata } from "@/lib/seo";
-import { getStore, listPosts } from "@/lib/store";
+import { getSettings, listPosts } from "@/lib/store";
 
 export const metadata: Metadata = buildPageMetadata({
   title: "DAAICF - Dr. Andrew A. Igwe Care Foundation",
@@ -70,7 +70,7 @@ function buildFeaturedPostHref(slug: string) {
 }
 
 export default async function HomePage() {
-  const { settings } = await getStore();
+  const settings = await getSettings();
   const helpApplicationsEnabled = settings.features.helpApplicationsEnabled;
   const featuredPosts = (await listPosts({ publishedOnly: true, perPage: 2 })).items;
   const serviceYears = Math.max(

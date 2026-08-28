@@ -3,6 +3,8 @@ import { notFound } from "next/navigation";
 import { Card } from "@/components/ui/card";
 import { getSettings } from "@/lib/store";
 
+export const dynamic = "force-dynamic";
+
 export default async function ApplySuccessPage(
   props: PageProps<"/apply/success">
 ) {

@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { appUrl, renderEmailLayout } from "@/lib/email";
@@ -40,6 +40,7 @@ import {
   removeGalleryCollection,
   removeGalleryYear,
   removeGalleryItem,
+  STORE_CACHE_TAGS,
   updateGalleryCollection,
   uploadGalleryMedia,
   updateApplicationStatus,
@@ -163,6 +164,12 @@ const teamMemberSchema = z.object({
 
 function getActionErrorMessage(error: unknown, fallback: string) {
   return error instanceof Error ? error.message : fallback;
+}
+
+function updateStoreCacheTags(tags: Array<(typeof STORE_CACHE_TAGS)[keyof typeof STORE_CACHE_TAGS]>) {
+  for (const tag of tags) {
+    updateTag(tag);
+  }
 }
 
 async function ensurePrivatePortalChatRoom(input: {
@@ -407,6 +414,7 @@ export async function savePostAction(formData: FormData) {
     await createPost(payload);
   }
 
+  updateStoreCacheTags([STORE_CACHE_TAGS.posts]);
   revalidatePath("/admin/posts");
   revalidatePath("/activities");
   revalidatePath("/admin/gallery");
@@ -433,6 +441,7 @@ export async function deletePostAction(slug: string, _formData: FormData) {
 
   try {
     await deletePost(slug);
+    updateStoreCacheTags([STORE_CACHE_TAGS.posts]);
     revalidatePath("/admin/posts");
     revalidatePath("/activities");
     revalidatePath(`/activities/${slug}`);
@@ -477,6 +486,7 @@ export async function updateCommentAction(
     } else {
       await deleteComment(id);
     }
+    updateStoreCacheTags([STORE_CACHE_TAGS.comments]);
   } catch (error) {
     await flashAndRedirect("/admin/comments", {
       type: "error",
@@ -867,6 +877,7 @@ export async function saveSettingsAction(formData: FormData) {
   });
 
   revalidatePath("/admin/settings");
+  updateStoreCacheTags([STORE_CACHE_TAGS.settings]);
   revalidatePath("/");
   revalidatePath("/contact");
   revalidatePath("/apply");
@@ -959,6 +970,7 @@ export async function saveTeamMemberAction(formData: FormData) {
   }
 
   revalidatePath("/admin/team");
+  updateStoreCacheTags([STORE_CACHE_TAGS.team]);
   if (data.id) {
     revalidatePath(`/admin/team/${data.id}/edit`);
   }
@@ -997,6 +1009,7 @@ export async function deleteTeamMemberAction(id: string, _formData: FormData) {
   }
 
   revalidatePath("/admin/team");
+  updateStoreCacheTags([STORE_CACHE_TAGS.team]);
   revalidatePath(`/admin/team/${id}/edit`);
   revalidatePath("/about");
   revalidatePath("/about/team");
@@ -1058,6 +1071,7 @@ export async function createGalleryCollectionAction(formData: FormData) {
       sourcePostId: optionalString(data.sourcePostId),
     });
 
+    updateStoreCacheTags([STORE_CACHE_TAGS.gallery]);
     revalidatePath("/admin/gallery");
     revalidatePath("/gallery");
     await flashAndRedirect(`/admin/gallery/${collection.id}`, {
@@ -1132,6 +1146,7 @@ export async function uploadGalleryMediaAction(formData: FormData) {
     });
   }
 
+  updateStoreCacheTags([STORE_CACHE_TAGS.gallery]);
   revalidatePath("/admin/gallery");
   revalidatePath("/gallery");
   await flashAndRedirect("/admin/gallery", {
@@ -1159,6 +1174,7 @@ export async function deleteGalleryItemAction(
 
   try {
     await removeGalleryItem(id);
+    updateStoreCacheTags([STORE_CACHE_TAGS.gallery]);
   } catch (error) {
     await flashAndRedirect("/admin/gallery", {
       type: "error",
@@ -1225,6 +1241,7 @@ export async function updateGalleryCollectionAction(
     });
   }
 
+  updateStoreCacheTags([STORE_CACHE_TAGS.gallery]);
   revalidatePath("/admin/gallery");
   revalidatePath(`/admin/gallery/${collectionId}`);
   revalidatePath("/gallery");
@@ -1278,6 +1295,7 @@ export async function addGalleryCollectionMediaAction(
     });
   }
 
+  updateStoreCacheTags([STORE_CACHE_TAGS.gallery]);
   revalidatePath("/admin/gallery");
   revalidatePath(`/admin/gallery/${collectionId}`);
   revalidatePath("/gallery");
@@ -1316,6 +1334,7 @@ export async function deleteGalleryCollectionAction(
     });
   }
 
+  updateStoreCacheTags([STORE_CACHE_TAGS.gallery]);
   revalidatePath("/admin/gallery");
   revalidatePath(`/admin/gallery/${collectionId}`);
   revalidatePath("/gallery");
@@ -1353,6 +1372,7 @@ export async function addGalleryYearAction(formData: FormData) {
     });
   }
 
+  updateStoreCacheTags([STORE_CACHE_TAGS.gallery]);
   revalidatePath("/admin/gallery");
   revalidatePath("/gallery");
   await flashAndRedirect("/admin/gallery", {
@@ -1393,6 +1413,7 @@ export async function deleteGalleryYearAction(
     });
   }
 
+  updateStoreCacheTags([STORE_CACHE_TAGS.gallery]);
   revalidatePath("/admin/gallery");
   revalidatePath("/gallery");
   await flashAndRedirect("/admin/gallery", {
@@ -1449,6 +1470,7 @@ export async function saveProjectAction(formData: FormData) {
     await createProject(data);
   }
 
+  updateStoreCacheTags([STORE_CACHE_TAGS.projects]);
   revalidatePath("/admin/projects");
   revalidatePath("/sponsor/projects");
   await flashAndRedirect("/admin/projects", {

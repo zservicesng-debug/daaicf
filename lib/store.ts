@@ -1,6 +1,6 @@
 import "server-only";
 
-import { unstable_noStore as noStore } from "next/cache";
+import { unstable_cache, unstable_noStore as noStore } from "next/cache";
 import { appendSearchParam, appUrl } from "@/lib/email";
 import { resolveConfiguredSocialLinks } from "@/lib/site-config";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -247,6 +247,46 @@ type TeamMemberRow = {
 const STORAGE_BUCKET = process.env.SUPABASE_STORAGE_BUCKET || "site-media";
 const defaultStore = mockStore.getStore();
 const MOCK_UNSET = Symbol("MOCK_UNSET");
+const PUBLIC_CACHE_REVALIDATE_SECONDS = 60 * 60;
+
+export const STORE_CACHE_TAGS = {
+  settings: "store:settings",
+  posts: "store:posts",
+  gallery: "store:gallery",
+  comments: "store:comments",
+  team: "store:team",
+  projects: "store:projects",
+} as const;
+
+type ListPostsOptions = {
+  category?: string;
+  search?: string;
+  page?: number;
+  perPage?: number;
+  publishedOnly?: boolean;
+  homeOnly?: boolean;
+};
+
+type NormalizedListPostsOptions = {
+  category: string;
+  search: string;
+  page: number;
+  perPage: number;
+  publishedOnly: boolean;
+  homeOnly: boolean;
+};
+
+type ListGalleryOptions = {
+  album?: string;
+  year?: number;
+  collectionId?: string;
+};
+
+type NormalizedListGalleryOptions = {
+  album: string;
+  year: number | null;
+  collectionId: string;
+};
 
 function getAdminClient() {
   return createSupabaseAdminClient();
@@ -262,6 +302,39 @@ function maybeUseMock<T>(callback: () => T): T | typeof MOCK_UNSET {
   }
 
   return MOCK_UNSET;
+}
+
+function normalizeListPostsOptions(
+  options?: ListPostsOptions
+): NormalizedListPostsOptions {
+  return {
+    category: options?.category || "",
+    search: options?.search?.trim() || "",
+    page: options?.page ?? 1,
+    perPage: options?.perPage ?? 6,
+    publishedOnly: options?.publishedOnly ?? false,
+    homeOnly: options?.homeOnly ?? false,
+  };
+}
+
+function normalizeListGalleryOptions(
+  options?: ListGalleryOptions
+): NormalizedListGalleryOptions {
+  return {
+    album: options?.album || "",
+    year: options?.year ?? null,
+    collectionId: options?.collectionId || "",
+  };
+}
+
+function toListGalleryOptions(
+  options: NormalizedListGalleryOptions
+): ListGalleryOptions {
+  return {
+    album: options.album || undefined,
+    year: options.year ?? undefined,
+    collectionId: options.collectionId || undefined,
+  };
 }
 
 function isLegacySponsorInsertError(error: { message?: string; code?: string } | null) {
@@ -1067,15 +1140,18 @@ async function fetchSettings() {
   return mapSettings(data as SiteSettingsRow | null);
 }
 
-export async function getSettings(): Promise<SettingsBundle> {
-  noStore();
+const getCachedSettings = unstable_cache(fetchSettings, ["store-settings"], {
+  tags: [STORE_CACHE_TAGS.settings],
+  revalidate: PUBLIC_CACHE_REVALIDATE_SECONDS,
+});
 
+export async function getSettings(): Promise<SettingsBundle> {
   const mock = maybeUseMock(() => mockStore.getStore().settings);
   if (mock !== MOCK_UNSET) {
     return mock;
   }
 
-  return fetchSettings();
+  return getCachedSettings();
 }
 
 async function fetchAllUsers() {
@@ -1108,6 +1184,15 @@ async function fetchTeamMembers() {
 
   return sortTeamMembers((data as TeamMemberRow[]).map(mapTeamMember));
 }
+
+const getCachedTeamMembers = unstable_cache(
+  fetchTeamMembers,
+  ["store-team-members"],
+  {
+    tags: [STORE_CACHE_TAGS.team],
+    revalidate: PUBLIC_CACHE_REVALIDATE_SECONDS,
+  }
+);
 
 export async function getStore(): Promise<SiteStore> {
   noStore();
@@ -1226,43 +1311,31 @@ export async function getStore(): Promise<SiteStore> {
   };
 }
 
-export async function listPosts(options?: {
-  category?: string;
-  search?: string;
-  page?: number;
-  perPage?: number;
-  publishedOnly?: boolean;
-  homeOnly?: boolean;
-}): Promise<{ items: Post[]; totalPages: number }> {
-  noStore();
-
-  const mock = maybeUseMock(() => mockStore.listPosts(options));
-  if (mock !== MOCK_UNSET) {
-    return mock;
-  }
-
+async function fetchPosts(
+  options: NormalizedListPostsOptions
+): Promise<{ items: Post[]; totalPages: number }> {
   const client = getAdminClient();
   if (!client) {
     return mockStore.listPosts(options);
   }
 
-  const page = options?.page ?? 1;
-  const perPage = options?.perPage ?? 6;
+  const page = options.page;
+  const perPage = options.perPage;
   const from = Math.max(0, (page - 1) * perPage);
   const to = from + perPage - 1;
 
   let query = client.from("posts").select("*", { count: "exact" });
-  if (options?.category && options.category !== "All") {
+  if (options.category && options.category !== "All") {
     query = query.eq("category", options.category);
   }
-  if (options?.publishedOnly) {
+  if (options.publishedOnly) {
     query = query.eq("published", true);
   }
-  if (options?.homeOnly) {
+  if (options.homeOnly) {
     query = query.eq("show_on_home", true);
   }
-  if (options?.search?.trim()) {
-    const search = options.search.trim().replaceAll("%", "\\%").replaceAll("_", "\\_");
+  if (options.search) {
+    const search = options.search.replaceAll("%", "\\%").replaceAll("_", "\\_");
     query = query.or(
       `title.ilike.%${search}%,excerpt.ilike.%${search}%,content.ilike.%${search}%`
     );
@@ -1281,14 +1354,24 @@ export async function listPosts(options?: {
   };
 }
 
-export async function getPostBySlug(slug: string): Promise<Post | null> {
-  noStore();
+const getCachedPosts = unstable_cache(fetchPosts, ["store-posts"], {
+  tags: [STORE_CACHE_TAGS.posts],
+  revalidate: PUBLIC_CACHE_REVALIDATE_SECONDS,
+});
 
-  const mock = maybeUseMock(() => mockStore.getPostBySlug(slug));
+export async function listPosts(
+  options?: ListPostsOptions
+): Promise<{ items: Post[]; totalPages: number }> {
+  const normalizedOptions = normalizeListPostsOptions(options);
+  const mock = maybeUseMock(() => mockStore.listPosts(normalizedOptions));
   if (mock !== MOCK_UNSET) {
     return mock;
   }
 
+  return getCachedPosts(normalizedOptions);
+}
+
+async function fetchPostBySlug(slug: string): Promise<Post | null> {
   const client = getAdminClient();
   if (!client) {
     return mockStore.getPostBySlug(slug);
@@ -1302,6 +1385,24 @@ export async function getPostBySlug(slug: string): Promise<Post | null> {
     .throwOnError();
 
   return data ? mapPost(data as PostRow) : null;
+}
+
+const getCachedPostBySlug = unstable_cache(
+  fetchPostBySlug,
+  ["store-post-by-slug"],
+  {
+    tags: [STORE_CACHE_TAGS.posts],
+    revalidate: PUBLIC_CACHE_REVALIDATE_SECONDS,
+  }
+);
+
+export async function getPostBySlug(slug: string): Promise<Post | null> {
+  const mock = maybeUseMock(() => mockStore.getPostBySlug(slug));
+  if (mock !== MOCK_UNSET) {
+    return mock;
+  }
+
+  return getCachedPostBySlug(slug);
 }
 
 async function getPostById(id?: string | null): Promise<Post | null> {
@@ -1584,31 +1685,22 @@ export async function deletePost(slug: string) {
   await removeStorageFiles((existing.gallery_image_paths as string[] | null) || []);
 }
 
-export async function listGallery(options?: {
-  album?: string;
-  year?: number;
-  collectionId?: string;
-}): Promise<GalleryImage[]> {
-  noStore();
-
-  const mock = maybeUseMock(() => mockStore.listGallery(options));
-  if (mock !== MOCK_UNSET) {
-    return mock;
-  }
-
+async function fetchGallery(
+  options: NormalizedListGalleryOptions
+): Promise<GalleryImage[]> {
   const client = getAdminClient();
   if (!client) {
-    return mockStore.listGallery(options);
+    return mockStore.listGallery(toListGalleryOptions(options));
   }
 
   let query = client.from("gallery_images").select("*");
-  if (options?.album && options.album !== "All") {
+  if (options.album && options.album !== "All") {
     query = query.eq("album", options.album);
   }
-  if (options?.year) {
+  if (options.year) {
     query = query.eq("gallery_year", options.year);
   }
-  if (options?.collectionId) {
+  if (options.collectionId) {
     query = query.eq("collection_id", options.collectionId);
   }
 
@@ -1619,16 +1711,26 @@ export async function listGallery(options?: {
   return (data as GalleryRow[]).map(mapGallery);
 }
 
-export async function listGalleryForPost(postId: string): Promise<GalleryImage[]> {
-  noStore();
+const getCachedGallery = unstable_cache(fetchGallery, ["store-gallery"], {
+  tags: [STORE_CACHE_TAGS.gallery],
+  revalidate: PUBLIC_CACHE_REVALIDATE_SECONDS,
+});
 
+export async function listGallery(
+  options?: ListGalleryOptions
+): Promise<GalleryImage[]> {
+  const normalizedOptions = normalizeListGalleryOptions(options);
   const mock = maybeUseMock(() =>
-    mockStore.listGallery().filter((item) => item.sourcePostId === postId)
+    mockStore.listGallery(toListGalleryOptions(normalizedOptions))
   );
   if (mock !== MOCK_UNSET) {
     return mock;
   }
 
+  return getCachedGallery(normalizedOptions);
+}
+
+async function fetchGalleryForPost(postId: string): Promise<GalleryImage[]> {
   const client = getAdminClient();
   if (!client) {
     return mockStore.listGallery().filter((item) => item.sourcePostId === postId);
@@ -1644,24 +1746,35 @@ export async function listGalleryForPost(postId: string): Promise<GalleryImage[]
   return (data as GalleryRow[]).map(mapGallery);
 }
 
-export async function listGalleryCollections(options?: {
-  album?: string;
-  year?: number;
-}): Promise<GalleryCollection[]> {
-  noStore();
+const getCachedGalleryForPost = unstable_cache(
+  fetchGalleryForPost,
+  ["store-gallery-for-post"],
+  {
+    tags: [STORE_CACHE_TAGS.gallery],
+    revalidate: PUBLIC_CACHE_REVALIDATE_SECONDS,
+  }
+);
 
-  const items = await listGallery(options);
-  return mapGalleryCollections(items);
-}
-
-export async function listGalleryYears(): Promise<number[]> {
-  noStore();
-
-  const mock = maybeUseMock(() => mockStore.listGalleryYears());
+export async function listGalleryForPost(postId: string): Promise<GalleryImage[]> {
+  const mock = maybeUseMock(() =>
+    mockStore.listGallery().filter((item) => item.sourcePostId === postId)
+  );
   if (mock !== MOCK_UNSET) {
     return mock;
   }
 
+  return getCachedGalleryForPost(postId);
+}
+
+export async function listGalleryCollections(options?: {
+  album?: string;
+  year?: number;
+}): Promise<GalleryCollection[]> {
+  const items = await listGallery(options);
+  return mapGalleryCollections(items);
+}
+
+async function fetchGalleryYears(): Promise<number[]> {
   const client = getAdminClient();
   if (!client) {
     return mockStore.listGalleryYears();
@@ -1674,6 +1787,24 @@ export async function listGalleryYears(): Promise<number[]> {
     .throwOnError();
 
   return (data as GalleryYearRow[]).map((row) => Number(row.year));
+}
+
+const getCachedGalleryYears = unstable_cache(
+  fetchGalleryYears,
+  ["store-gallery-years"],
+  {
+    tags: [STORE_CACHE_TAGS.gallery],
+    revalidate: PUBLIC_CACHE_REVALIDATE_SECONDS,
+  }
+);
+
+export async function listGalleryYears(): Promise<number[]> {
+  const mock = maybeUseMock(() => mockStore.listGalleryYears());
+  if (mock !== MOCK_UNSET) {
+    return mock;
+  }
+
+  return getCachedGalleryYears();
 }
 
 async function galleryYearExists(year: number) {
@@ -1695,8 +1826,6 @@ async function galleryYearExists(year: number) {
 export async function getGalleryCollectionById(
   collectionId: string
 ): Promise<GalleryCollection | null> {
-  noStore();
-
   const mock = maybeUseMock(() => mockStore.getGalleryCollectionById(collectionId));
   if (mock !== MOCK_UNSET) {
     return mock;
@@ -2085,17 +2214,10 @@ export async function removeGalleryYear(year: number) {
   return year;
 }
 
-export async function listComments(postId?: string): Promise<Comment[]> {
-  noStore();
-
-  const mock = maybeUseMock(() => mockStore.listComments(postId));
-  if (mock !== MOCK_UNSET) {
-    return mock;
-  }
-
+async function fetchComments(postId = ""): Promise<Comment[]> {
   const client = getAdminClient();
   if (!client) {
-    return mockStore.listComments(postId);
+    return mockStore.listComments(postId || undefined);
   }
 
   let query = client.from("comments").select("*");
@@ -2108,6 +2230,21 @@ export async function listComments(postId?: string): Promise<Comment[]> {
     .throwOnError();
 
   return (data as CommentRow[]).map(mapComment);
+}
+
+const getCachedComments = unstable_cache(fetchComments, ["store-comments"], {
+  tags: [STORE_CACHE_TAGS.comments],
+  revalidate: PUBLIC_CACHE_REVALIDATE_SECONDS,
+});
+
+export async function listComments(postId?: string): Promise<Comment[]> {
+  const normalizedPostId = postId || "";
+  const mock = maybeUseMock(() => mockStore.listComments(normalizedPostId || undefined));
+  if (mock !== MOCK_UNSET) {
+    return mock;
+  }
+
+  return getCachedComments(normalizedPostId);
 }
 
 export async function addComment(
@@ -2646,29 +2783,15 @@ export async function updateSettings(input: Partial<SiteStore["settings"]>) {
 }
 
 export async function listTeamMembers(): Promise<TeamMember[]> {
-  noStore();
-
   const mock = maybeUseMock(() => mockStore.listTeamMembers());
   if (mock !== MOCK_UNSET) {
     return mock;
   }
 
-  const client = getAdminClient();
-  if (!client) {
-    return mockStore.listTeamMembers();
-  }
-
-  return fetchTeamMembers();
+  return getCachedTeamMembers();
 }
 
-export async function getTeamMemberById(id: string): Promise<TeamMember | null> {
-  noStore();
-
-  const mock = maybeUseMock(() => mockStore.getTeamMemberById(id));
-  if (mock !== MOCK_UNSET) {
-    return mock;
-  }
-
+async function fetchTeamMemberById(id: string): Promise<TeamMember | null> {
   const client = getAdminClient();
   if (!client) {
     return mockStore.getTeamMemberById(id);
@@ -2682,6 +2805,24 @@ export async function getTeamMemberById(id: string): Promise<TeamMember | null> 
     .throwOnError();
 
   return data ? mapTeamMember(data as TeamMemberRow) : null;
+}
+
+const getCachedTeamMemberById = unstable_cache(
+  fetchTeamMemberById,
+  ["store-team-member-by-id"],
+  {
+    tags: [STORE_CACHE_TAGS.team],
+    revalidate: PUBLIC_CACHE_REVALIDATE_SECONDS,
+  }
+);
+
+export async function getTeamMemberById(id: string): Promise<TeamMember | null> {
+  const mock = maybeUseMock(() => mockStore.getTeamMemberById(id));
+  if (mock !== MOCK_UNSET) {
+    return mock;
+  }
+
+  return getCachedTeamMemberById(id);
 }
 
 export async function createTeamMember(input: {
@@ -2903,16 +3044,21 @@ export async function deleteTeamMember(id: string) {
 export async function listProjects(
   status?: Project["status"]
 ): Promise<Project[]> {
-  noStore();
-
-  const mock = maybeUseMock(() => mockStore.listProjects(status));
+  const normalizedStatus = status || "";
+  const mock = maybeUseMock(() =>
+    mockStore.listProjects((normalizedStatus as Project["status"]) || undefined)
+  );
   if (mock !== MOCK_UNSET) {
     return mock;
   }
 
+  return getCachedProjects(normalizedStatus);
+}
+
+async function fetchProjects(status = ""): Promise<Project[]> {
   const client = getAdminClient();
   if (!client) {
-    return mockStore.listProjects(status);
+    return mockStore.listProjects((status as Project["status"]) || undefined);
   }
 
   let query = client.from("projects").select("*");
@@ -2927,14 +3073,12 @@ export async function listProjects(
   return (data as ProjectRow[]).map(mapProject);
 }
 
-export async function getProjectById(id: string): Promise<Project | null> {
-  noStore();
+const getCachedProjects = unstable_cache(fetchProjects, ["store-projects"], {
+  tags: [STORE_CACHE_TAGS.projects],
+  revalidate: PUBLIC_CACHE_REVALIDATE_SECONDS,
+});
 
-  const mock = maybeUseMock(() => mockStore.getProjectById(id));
-  if (mock !== MOCK_UNSET) {
-    return mock;
-  }
-
+async function fetchProjectById(id: string): Promise<Project | null> {
   const client = getAdminClient();
   if (!client) {
     return mockStore.getProjectById(id);
@@ -2948,6 +3092,24 @@ export async function getProjectById(id: string): Promise<Project | null> {
     .throwOnError();
 
   return data ? mapProject(data as ProjectRow) : null;
+}
+
+const getCachedProjectById = unstable_cache(
+  fetchProjectById,
+  ["store-project-by-id"],
+  {
+    tags: [STORE_CACHE_TAGS.projects],
+    revalidate: PUBLIC_CACHE_REVALIDATE_SECONDS,
+  }
+);
+
+export async function getProjectById(id: string): Promise<Project | null> {
+  const mock = maybeUseMock(() => mockStore.getProjectById(id));
+  if (mock !== MOCK_UNSET) {
+    return mock;
+  }
+
+  return getCachedProjectById(id);
 }
 
 export async function createProject(input: Omit<Project, "id" | "createdAt">) {

@@ -7,10 +7,10 @@ import {
   FOUNDATION_REGISTERED_YEAR,
 } from "@/lib/foundation";
 import { getSocialLinks } from "@/lib/social";
-import { getStore } from "@/lib/store";
+import { getSettings } from "@/lib/store";
 
 export default async function ContactPage() {
-  const { settings } = await getStore();
+  const settings = await getSettings();
   const socialLinks = getSocialLinks(settings.contact);
 
   return (

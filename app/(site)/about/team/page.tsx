@@ -3,7 +3,7 @@ import { PageHero } from "@/components/public/page-hero";
 import { ButtonLink } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { FOUNDATION_OPERATING_YEAR } from "@/lib/foundation";
-import { getStore } from "@/lib/store";
+import { getSettings, listTeamMembers } from "@/lib/store";
 
 function TeamPortrait({
   name,
@@ -35,7 +35,10 @@ function TeamPortrait({
 }
 
 export default async function TeamPage() {
-  const { teamMembers, settings } = await getStore();
+  const [teamMembers, settings] = await Promise.all([
+    listTeamMembers(),
+    getSettings(),
+  ]);
   const featuredMembers = teamMembers.filter((member) => member.isFeatured);
   const leadMember = featuredMembers[0] || null;
   const otherMembers = leadMember

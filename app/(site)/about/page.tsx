@@ -10,7 +10,7 @@ import {
   FOUNDATION_REGISTERED_YEAR,
 } from "@/lib/foundation";
 import { FOUNDER_PROFILE_PATH, buildPageMetadata } from "@/lib/seo";
-import { getStore } from "@/lib/store";
+import { getSettings } from "@/lib/store";
 
 export const metadata: Metadata = buildPageMetadata({
   title: "About DAAICF and Dr. Andrew Igwe",
@@ -27,7 +27,7 @@ export const metadata: Metadata = buildPageMetadata({
 });
 
 export default async function AboutPage() {
-  const { settings } = await getStore();
+  const settings = await getSettings();
   const yearsOfImpact = new Date().getFullYear() - FOUNDATION_OPERATING_YEAR;
 
   return (
