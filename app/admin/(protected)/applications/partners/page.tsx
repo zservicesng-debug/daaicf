@@ -1,12 +1,16 @@
 import Link from "next/link";
-import { deletePartnerApplicationAction } from "@/app/_actions/admin";
+import {
+  blockEmailAction,
+  deletePartnerApplicationAction,
+} from "@/app/_actions/admin";
 import { Card } from "@/components/ui/card";
 import { ConfirmActionModal } from "@/components/ui/confirm-action-modal";
 import { getStore } from "@/lib/store";
 import { statusTone } from "@/lib/utils";
 
 export default async function PartnerApplicationsPage() {
-  const { partnerApplications } = await getStore();
+  const { blockedEmails, partnerApplications } = await getStore();
+  const blockedEmailSet = new Set(blockedEmails.map((item) => item.email));
 
   return (
     <div className="space-y-6">
@@ -34,6 +38,13 @@ export default async function PartnerApplicationsPage() {
                 null,
                 item.id
               );
+              const isBlocked = blockedEmailSet.has(item.email.toLowerCase());
+              const blockApplicant = blockEmailAction.bind(null, {
+                email: item.email,
+                reason: `Blocked from partner application review: ${item.orgName}`,
+                source: "Partner application",
+                returnTo: "/admin/applications/partners",
+              });
 
               return (
                 <tr
@@ -42,6 +53,11 @@ export default async function PartnerApplicationsPage() {
                 >
                   <td className="px-4 py-4 font-semibold text-[var(--color-text)]">
                     {item.orgName}
+                    {isBlocked ? (
+                      <span className="mt-2 block w-fit rounded-full bg-[#FDECEC] px-2.5 py-1 text-xs font-semibold text-[#A12626]">
+                        Blocked
+                      </span>
+                    ) : null}
                   </td>
                   <td className="px-4 py-4 muted-copy">{item.contactName}</td>
                   <td className="px-4 py-4 muted-copy">{item.orgType}</td>
@@ -60,6 +76,17 @@ export default async function PartnerApplicationsPage() {
                       >
                         View
                       </Link>
+                      {!isBlocked ? (
+                        <ConfirmActionModal
+                          action={blockApplicant}
+                          title="Block this partner email?"
+                          description={`${item.email} will no longer be able to submit controlled website forms.`}
+                          trigger="Block"
+                          triggerClassName="!px-3 !py-2 text-xs"
+                          confirmLabel="Block Email"
+                          submitToastTitle="Blocking email"
+                        />
+                      ) : null}
                       <ConfirmActionModal
                         action={deleteApplication}
                         title="Delete partner application?"

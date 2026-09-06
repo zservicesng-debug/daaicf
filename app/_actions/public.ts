@@ -14,6 +14,7 @@ import {
   addSponsorApplication,
   getFileInputs,
   getSettings,
+  isEmailBlocked,
 } from "@/lib/store";
 import { sendTransactionalEmail } from "@/lib/resend";
 import { type SponsorSector } from "@/types";
@@ -58,6 +59,17 @@ function getPublicSubmissionErrorMessage(error: unknown) {
   return "We could not save your comment right now. Please try again.";
 }
 
+async function getBlockedEmailSubmissionState(email: string) {
+  if (!(await isEmailBlocked(email))) {
+    return null;
+  }
+
+  return {
+    status: "error" as const,
+    message: "We could not accept this submission. Please contact the foundation directly if you believe this is a mistake.",
+  };
+}
+
 const commentSchema = z.object({
   postId: z.string().min(1),
   postSlug: z.string().min(1),
@@ -83,6 +95,11 @@ export async function submitComment(
       status: "error" as const,
       message: parsed.error.issues[0]?.message || "Please check the form.",
     };
+  }
+
+  const blockedState = await getBlockedEmailSubmissionState(parsed.data.authorEmail);
+  if (blockedState) {
+    return blockedState;
   }
 
   try {
@@ -161,6 +178,11 @@ export async function submitContactMessage(
       status: "error" as const,
       message: parsed.error.issues[0]?.message || "Unable to send your message.",
     };
+  }
+
+  const blockedState = await getBlockedEmailSubmissionState(parsed.data.email);
+  if (blockedState) {
+    return blockedState;
   }
 
   await addContactMessage(parsed.data);
@@ -326,6 +348,15 @@ export async function submitSponsorApplication(formData: FormData) {
       title: "Application not submitted",
       description:
         "Please complete the sponsorship form before sending your request.",
+    });
+  }
+
+  if (await isEmailBlocked(data.email)) {
+    return flashAndRedirect("/apply/sponsor", {
+      type: "error",
+      title: "Application not submitted",
+      description:
+        "We could not accept this submission. Please contact the foundation directly if you believe this is a mistake.",
     });
   }
 
@@ -498,6 +529,15 @@ export async function submitPartnerApplication(formData: FormData) {
       title: "Request not submitted",
       description:
         "Please complete the partnership form and select at least one interest.",
+    });
+  }
+
+  if (await isEmailBlocked(data.email)) {
+    return flashAndRedirect("/apply/partner", {
+      type: "error",
+      title: "Request not submitted",
+      description:
+        "We could not accept this submission. Please contact the foundation directly if you believe this is a mistake.",
     });
   }
 

@@ -1,12 +1,16 @@
 import Link from "next/link";
-import { deleteSponsorApplicationAction } from "@/app/_actions/admin";
+import {
+  blockEmailAction,
+  deleteSponsorApplicationAction,
+} from "@/app/_actions/admin";
 import { Card } from "@/components/ui/card";
 import { ConfirmActionModal } from "@/components/ui/confirm-action-modal";
 import { getStore } from "@/lib/store";
 import { statusTone } from "@/lib/utils";
 
 export default async function SponsorApplicationsPage() {
-  const { sponsorApplications } = await getStore();
+  const { blockedEmails, sponsorApplications } = await getStore();
+  const blockedEmailSet = new Set(blockedEmails.map((item) => item.email));
 
   return (
     <div className="space-y-6">
@@ -37,6 +41,13 @@ export default async function SponsorApplicationsPage() {
                 null,
                 item.id
               );
+              const isBlocked = blockedEmailSet.has(item.email.toLowerCase());
+              const blockApplicant = blockEmailAction.bind(null, {
+                email: item.email,
+                reason: `Blocked from sponsor application review: ${item.orgName || item.name}`,
+                source: "Sponsor application",
+                returnTo: "/admin/applications/sponsors",
+              });
 
               return (
                 <tr
@@ -48,6 +59,11 @@ export default async function SponsorApplicationsPage() {
                     <span className="mt-1 block text-xs font-normal muted-copy">
                       {item.orgName}
                     </span>
+                    {isBlocked ? (
+                      <span className="mt-2 inline-flex rounded-full bg-[#FDECEC] px-2.5 py-1 text-xs font-semibold text-[#A12626]">
+                        Blocked
+                      </span>
+                    ) : null}
                   </td>
                   <td className="px-4 py-4 muted-copy">{item.applicantType}</td>
                   <td className="px-4 py-4 muted-copy">
@@ -74,6 +90,17 @@ export default async function SponsorApplicationsPage() {
                       >
                         View
                       </Link>
+                      {!isBlocked ? (
+                        <ConfirmActionModal
+                          action={blockApplicant}
+                          title="Block this sponsor email?"
+                          description={`${item.email} will no longer be able to submit controlled website forms.`}
+                          trigger="Block"
+                          triggerClassName="!px-3 !py-2 text-xs"
+                          confirmLabel="Block Email"
+                          submitToastTitle="Blocking email"
+                        />
+                      ) : null}
                       <ConfirmActionModal
                         action={deleteApplication}
                         title="Delete sponsor application?"

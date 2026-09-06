@@ -121,6 +121,14 @@ export interface ContactMessage {
   createdAt: string;
 }
 
+export interface BlockedEmail {
+  id: string;
+  email: string;
+  reason?: string;
+  source?: string;
+  createdAt: string;
+}
+
 export interface HelpApplication {
   id: string;
   name: string;
@@ -287,6 +295,7 @@ export interface DashboardSnapshot {
   galleryImages: number;
   activeSponsors: number;
   activePartners: number;
+  blockedEmails: number;
 }
 
 export interface SiteStore {
@@ -295,6 +304,7 @@ export interface SiteStore {
   gallery: GalleryImage[];
   comments: Comment[];
   contactMessages: ContactMessage[];
+  blockedEmails: BlockedEmail[];
   applications: HelpApplication[];
   sponsorApplications: SponsorApplication[];
   partnerApplications: PartnerApplication[];

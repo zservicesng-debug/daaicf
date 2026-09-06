@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import {
+  blockEmailAction,
   deletePartnerApplicationAction,
   updatePartnerApplicationAction,
 } from "@/app/_actions/admin";
@@ -11,6 +12,7 @@ import {
   findUserByEmail,
   getPartnerApplicationById,
   getPartnerPermissionKeys,
+  listBlockedEmails,
 } from "@/lib/store";
 
 const permissionOptions = [
@@ -29,10 +31,20 @@ export default async function PartnerApplicationDetailPage(
     notFound();
   }
   const existingUser = await findUserByEmail("partner", application.email);
+  const blockedEmails = await listBlockedEmails();
+  const isBlocked = blockedEmails.some(
+    (item) => item.email === application.email.toLowerCase()
+  );
   const selectedPermissionKeys = existingUser
     ? await getPartnerPermissionKeys(existingUser.id)
     : [];
   const deleteApplication = deletePartnerApplicationAction.bind(null, application.id);
+  const blockApplicant = blockEmailAction.bind(null, {
+    email: application.email,
+    reason: `Blocked from partner application review: ${application.orgName}`,
+    source: "Partner application",
+    returnTo: `/admin/applications/partners/${application.id}`,
+  });
 
   return (
     <div className="space-y-6">
@@ -45,14 +57,30 @@ export default async function PartnerApplicationDetailPage(
             Approve a partner, assign content permissions, or remove the submission.
           </p>
         </div>
-        <ConfirmActionModal
-          action={deleteApplication}
-          title="Delete partner application?"
-          description={`This will permanently remove ${application.orgName}'s partner application and disable any partner portal access attached to ${application.email}. This action cannot be undone.`}
-          trigger="Delete Application"
-          confirmLabel="Delete Application"
-          submitToastTitle="Deleting partner application"
-        />
+        <div className="flex flex-wrap gap-3">
+          {isBlocked ? (
+            <span className="inline-flex min-h-11 items-center rounded-full bg-[#FDECEC] px-4 text-sm font-semibold text-[#A12626]">
+              Email Blocked
+            </span>
+          ) : (
+            <ConfirmActionModal
+              action={blockApplicant}
+              title="Block this partner email?"
+              description={`${application.email} will no longer be able to submit controlled website forms.`}
+              trigger="Block Email"
+              confirmLabel="Block Email"
+              submitToastTitle="Blocking email"
+            />
+          )}
+          <ConfirmActionModal
+            action={deleteApplication}
+            title="Delete partner application?"
+            description={`This will permanently remove ${application.orgName}'s partner application and disable any partner portal access attached to ${application.email}. This action cannot be undone.`}
+            trigger="Delete Application"
+            confirmLabel="Delete Application"
+            submitToastTitle="Deleting partner application"
+          />
+        </div>
       </div>
       <Card className="p-6 md:p-8">
         <form action={updatePartnerApplicationAction} className="space-y-5">

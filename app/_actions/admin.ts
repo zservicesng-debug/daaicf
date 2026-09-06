@@ -9,6 +9,7 @@ import { setFlashToast } from "@/lib/flash-toast.server";
 import { sendTransactionalEmail } from "@/lib/resend";
 import {
   addGalleryYear,
+  addBlockedEmail,
   addGalleryCollectionMedia,
   addChatMessage,
   createGalleryCollection,
@@ -38,6 +39,7 @@ import {
   listChatRoomsForUser,
   listProjects,
   removeGalleryCollection,
+  removeBlockedEmail,
   removeGalleryYear,
   removeGalleryItem,
   STORE_CACHE_TAGS,
@@ -509,6 +511,132 @@ export async function updateCommentAction(
       mode === "delete"
         ? "The comment has been removed."
         : "The comment is now visible on the public site.",
+  });
+}
+
+const blockedEmailSchema = z.object({
+  email: z.string().trim().email("Enter a valid email address to block."),
+  reason: z.string().trim().max(240).optional().or(z.literal("")),
+  source: z.string().trim().max(120).optional().or(z.literal("")),
+  returnTo: z.string().trim().optional().or(z.literal("")),
+});
+
+function getSafeAdminReturnPath(value?: string) {
+  const path = value?.trim();
+  if (!path || !path.startsWith("/admin") || path.startsWith("//")) {
+    return "/admin/blocked-emails";
+  }
+
+  return path;
+}
+
+async function revalidateEmailBlockPages(returnTo: string) {
+  updateStoreCacheTags([STORE_CACHE_TAGS.blockedEmails]);
+  revalidatePath("/admin/blocked-emails");
+  revalidatePath("/admin/comments");
+  revalidatePath("/admin/dashboard");
+  revalidatePath("/admin/applications/sponsors");
+  revalidatePath("/admin/applications/partners");
+  revalidatePath(returnTo);
+}
+
+export async function blockEmailAction(
+  input: {
+    email: string;
+    reason?: string;
+    source?: string;
+    returnTo?: string;
+  },
+  _formData: FormData
+) {
+  await requireRole("admin");
+  void _formData;
+
+  const parsed = blockedEmailSchema.safeParse(input);
+  const returnTo = getSafeAdminReturnPath(input.returnTo);
+
+  if (!parsed.success) {
+    return await flashAndRedirect(returnTo, {
+      type: "error",
+      title: "Email not blocked",
+      description:
+        parsed.error.issues[0]?.message || "Enter a valid email address to block.",
+    });
+  }
+
+  const data = parsed.data;
+  const blockedEmail = await addBlockedEmail({
+    email: data.email,
+    reason: data.reason || undefined,
+    source: data.source || undefined,
+  });
+
+  await revalidateEmailBlockPages(returnTo);
+  await flashAndRedirect(returnTo, {
+    type: "success",
+    title: "Email blocked",
+    description: `${blockedEmail.email} can no longer submit controlled website forms.`,
+  });
+}
+
+export async function blockEmailFromFormAction(formData: FormData) {
+  await requireRole("admin");
+
+  const parsed = blockedEmailSchema.safeParse({
+    email: formData.get("email"),
+    reason: formData.get("reason"),
+    source: formData.get("source"),
+    returnTo: formData.get("returnTo"),
+  });
+  const returnTo = getSafeAdminReturnPath(String(formData.get("returnTo") || ""));
+
+  if (!parsed.success) {
+    return await flashAndRedirect(returnTo, {
+      type: "error",
+      title: "Email not blocked",
+      description:
+        parsed.error.issues[0]?.message || "Enter a valid email address to block.",
+    });
+  }
+
+  const data = parsed.data;
+  const blockedEmail = await addBlockedEmail({
+    email: data.email,
+    reason: data.reason || undefined,
+    source: data.source || undefined,
+  });
+
+  await revalidateEmailBlockPages(returnTo);
+  await flashAndRedirect(returnTo, {
+    type: "success",
+    title: "Email blocked",
+    description: `${blockedEmail.email} can no longer submit controlled website forms.`,
+  });
+}
+
+export async function unblockEmailAction(
+  id: string,
+  returnTo: string,
+  _formData: FormData
+) {
+  await requireRole("admin");
+  void _formData;
+
+  const redirectPath = getSafeAdminReturnPath(returnTo);
+  if (!id) {
+    await flashAndRedirect(redirectPath, {
+      type: "error",
+      title: "Email not unblocked",
+      description: "We could not identify the blocked email.",
+    });
+  }
+
+  await removeBlockedEmail(id);
+  await revalidateEmailBlockPages(redirectPath);
+  await flashAndRedirect(redirectPath, {
+    type: "success",
+    title: "Email unblocked",
+    description: "That email can submit controlled website forms again.",
   });
 }
 

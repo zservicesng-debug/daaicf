@@ -3,6 +3,7 @@ import {
   FileText,
   FolderKanban,
   ImageIcon,
+  ShieldBan,
   MessageSquareText,
   Users,
 } from "lucide-react";
@@ -56,6 +57,13 @@ export default async function AdminDashboardPage() {
           icon={<ImageIcon className="h-6 w-6 text-[#1E4F8E]" />}
           tone="bg-[#EAF1FF]"
           href="/admin/gallery"
+        />
+        <StatCard
+          label="Blocked Emails"
+          value={snapshot.blockedEmails}
+          icon={<ShieldBan className="h-6 w-6 text-[#A12626]" />}
+          tone="bg-[#FDECEC]"
+          href="/admin/blocked-emails"
         />
         <StatCard
           label="Active Sponsors"

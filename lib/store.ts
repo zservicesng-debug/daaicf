@@ -14,6 +14,7 @@ import {
 } from "@/lib/utils";
 import {
   type ApplicationStatus,
+  type BlockedEmail,
   type ChatMember,
   type GalleryCollection,
   type ChatMessage,
@@ -101,6 +102,14 @@ type ContactMessageRow = {
   name: string;
   email: string;
   message: string;
+  created_at: string;
+};
+
+type BlockedEmailRow = {
+  id: string;
+  email: string;
+  reason: string | null;
+  source: string | null;
   created_at: string;
 };
 
@@ -254,6 +263,7 @@ export const STORE_CACHE_TAGS = {
   posts: "store:posts",
   gallery: "store:gallery",
   comments: "store:comments",
+  blockedEmails: "store:blocked-emails",
   team: "store:team",
   projects: "store:projects",
 } as const;
@@ -468,6 +478,20 @@ function mapContactMessage(row: ContactMessageRow): ContactMessage {
     name: row.name,
     email: row.email,
     message: row.message,
+    createdAt: row.created_at,
+  };
+}
+
+function normalizeEmailAddress(email: string) {
+  return email.trim().toLowerCase();
+}
+
+function mapBlockedEmail(row: BlockedEmailRow): BlockedEmail {
+  return {
+    id: row.id,
+    email: row.email,
+    reason: row.reason || undefined,
+    source: row.source || undefined,
     createdAt: row.created_at,
   };
 }
@@ -1213,6 +1237,7 @@ export async function getStore(): Promise<SiteStore> {
     galleryResult,
     commentsResult,
     contactMessagesResult,
+    blockedEmailsResult,
     applicationsResult,
     sponsorApplicationsResult,
     partnerApplicationsResult,
@@ -1235,6 +1260,11 @@ export async function getStore(): Promise<SiteStore> {
     client.from("comments").select("*").order("created_at", { ascending: false }).throwOnError(),
     client
       .from("contact_messages")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .throwOnError(),
+    client
+      .from("blocked_emails")
       .select("*")
       .order("created_at", { ascending: false })
       .throwOnError(),
@@ -1286,6 +1316,9 @@ export async function getStore(): Promise<SiteStore> {
     comments: (commentsResult.data as CommentRow[]).map(mapComment),
     contactMessages: (contactMessagesResult.data as ContactMessageRow[]).map(
       mapContactMessage
+    ),
+    blockedEmails: (blockedEmailsResult.data as BlockedEmailRow[]).map(
+      mapBlockedEmail
     ),
     applications: (applicationsResult.data as HelpApplicationRow[]).map(
       mapHelpApplication
@@ -2358,6 +2391,117 @@ export async function addContactMessage(input: {
     .throwOnError();
 
   return mapContactMessage(data as ContactMessageRow);
+}
+
+export async function listBlockedEmails(): Promise<BlockedEmail[]> {
+  noStore();
+
+  const mock = maybeUseMock(() => mockStore.listBlockedEmails());
+  if (mock !== MOCK_UNSET) {
+    return mock;
+  }
+
+  const client = getAdminClient();
+  if (!client) {
+    return mockStore.listBlockedEmails();
+  }
+
+  const { data } = await client
+    .from("blocked_emails")
+    .select("*")
+    .order("created_at", { ascending: false })
+    .throwOnError();
+
+  return (data as BlockedEmailRow[]).map(mapBlockedEmail);
+}
+
+export async function isEmailBlocked(email: string): Promise<boolean> {
+  noStore();
+
+  const normalizedEmail = normalizeEmailAddress(email);
+  if (!normalizedEmail) {
+    return false;
+  }
+
+  const mock = maybeUseMock(() => mockStore.isEmailBlocked(normalizedEmail));
+  if (mock !== MOCK_UNSET) {
+    return Boolean(mock);
+  }
+
+  const client = getAdminClient();
+  if (!client) {
+    return mockStore.isEmailBlocked(normalizedEmail);
+  }
+
+  const { data } = await client
+    .from("blocked_emails")
+    .select("id")
+    .eq("email", normalizedEmail)
+    .maybeSingle()
+    .throwOnError();
+
+  return Boolean(data);
+}
+
+export async function addBlockedEmail(input: {
+  email: string;
+  reason?: string;
+  source?: string;
+}) {
+  const normalizedEmail = normalizeEmailAddress(input.email);
+  if (!normalizedEmail) {
+    throw new Error("Enter a valid email address to block.");
+  }
+
+  const mock = maybeUseMock(() =>
+    mockStore.addBlockedEmail({
+      email: normalizedEmail,
+      reason: input.reason,
+      source: input.source,
+    })
+  );
+  if (mock !== MOCK_UNSET) {
+    return mock;
+  }
+
+  const client = getAdminClient();
+  if (!client) {
+    return mockStore.addBlockedEmail({
+      email: normalizedEmail,
+      reason: input.reason,
+      source: input.source,
+    });
+  }
+
+  const { data } = await client
+    .from("blocked_emails")
+    .upsert(
+      {
+        email: normalizedEmail,
+        reason: input.reason?.trim() || null,
+        source: input.source?.trim() || null,
+      },
+      { onConflict: "email", ignoreDuplicates: false }
+    )
+    .select("*")
+    .single()
+    .throwOnError();
+
+  return mapBlockedEmail(data as BlockedEmailRow);
+}
+
+export async function removeBlockedEmail(id: string) {
+  const mock = maybeUseMock(() => mockStore.removeBlockedEmail(id));
+  if (mock !== MOCK_UNSET) {
+    return mock;
+  }
+
+  const client = getAdminClient();
+  if (!client) {
+    return mockStore.removeBlockedEmail(id);
+  }
+
+  await client.from("blocked_emails").delete().eq("id", id).throwOnError();
 }
 
 export async function addHelpApplication(
@@ -3879,6 +4023,7 @@ export async function getDashboardSnapshot(): Promise<DashboardSnapshot> {
     pendingComments: store.comments.filter((item) => item.status === "pending")
       .length,
     galleryImages: store.gallery.length,
+    blockedEmails: store.blockedEmails.length,
     activeSponsors: store.users.filter(
       (user) => user.role === "sponsor" && user.status === "active"
     ).length,

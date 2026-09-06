@@ -1,5 +1,6 @@
 ﻿import {
   type ApplicationStatus,
+  type BlockedEmail,
   type ChatRoom,
   type Comment,
   type GalleryCollection,
@@ -347,6 +348,7 @@ function buildInitialStore(): SiteStore {
     gallery: [],
     comments: [],
     contactMessages: [],
+    blockedEmails: [],
     applications: [
       {
         id: "app-1",
@@ -1187,6 +1189,49 @@ export function addContactMessage(input: {
   return structuredClone(item);
 }
 
+function normalizeEmailAddress(email: string) {
+  return email.trim().toLowerCase();
+}
+
+export function listBlockedEmails() {
+  return structuredClone(
+    [...store.blockedEmails].sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+  );
+}
+
+export function isEmailBlocked(email: string) {
+  const normalizedEmail = normalizeEmailAddress(email);
+  return store.blockedEmails.some((entry) => entry.email === normalizedEmail);
+}
+
+export function addBlockedEmail(input: {
+  email: string;
+  reason?: string;
+  source?: string;
+}) {
+  const email = normalizeEmailAddress(input.email);
+  const existing = store.blockedEmails.find((entry) => entry.email === email);
+
+  if (existing) {
+    return structuredClone(existing);
+  }
+
+  const item: BlockedEmail = {
+    id: crypto.randomUUID(),
+    email,
+    reason: input.reason?.trim() || undefined,
+    source: input.source?.trim() || undefined,
+    createdAt: new Date().toISOString(),
+  };
+
+  store.blockedEmails.unshift(item);
+  return structuredClone(item);
+}
+
+export function removeBlockedEmail(id: string) {
+  store.blockedEmails = store.blockedEmails.filter((entry) => entry.id !== id);
+}
+
 export function addHelpApplication(
   input: Omit<
     HelpApplication,
@@ -1634,6 +1679,7 @@ export function getDashboardSnapshot() {
     pendingComments: store.comments.filter((item) => item.status === "pending")
       .length,
     galleryImages: store.gallery.length,
+    blockedEmails: store.blockedEmails.length,
     activeSponsors: store.users.filter(
       (user) => user.role === "sponsor" && user.status === "active"
     ).length,

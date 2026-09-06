@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import {
+  blockEmailAction,
   deleteSponsorApplicationAction,
   updateSponsorApplicationAction,
 } from "@/app/_actions/admin";
@@ -9,6 +10,7 @@ import { SelectInput, TextArea, TextInput } from "@/components/ui/field";
 import { SubmitButton } from "@/components/ui/submit-button";
 import {
   findUserByEmail,
+  listBlockedEmails,
   getSponsorApplicationById,
   getSponsorProjects,
   listProjects,
@@ -24,10 +26,20 @@ export default async function SponsorApplicationDetailPage(
   }
   const activeProjects = await listProjects("active");
   const existingUser = await findUserByEmail("sponsor", application.email);
+  const blockedEmails = await listBlockedEmails();
+  const isBlocked = blockedEmails.some(
+    (item) => item.email === application.email.toLowerCase()
+  );
   const selectedProjectIds = existingUser
     ? (await getSponsorProjects(existingUser.id)).map((project) => project.id)
     : application.projectIds;
   const deleteApplication = deleteSponsorApplicationAction.bind(null, application.id);
+  const blockApplicant = blockEmailAction.bind(null, {
+    email: application.email,
+    reason: `Blocked from sponsor application review: ${application.orgName || application.name}`,
+    source: "Sponsor application",
+    returnTo: `/admin/applications/sponsors/${application.id}`,
+  });
 
   return (
     <div className="space-y-6">
@@ -41,14 +53,30 @@ export default async function SponsorApplicationDetailPage(
             assign projects, or remove the submission.
           </p>
         </div>
-        <ConfirmActionModal
-          action={deleteApplication}
-          title="Delete sponsor application?"
-          description={`This will permanently remove ${application.name}'s sponsor application and disable any sponsor portal access attached to ${application.email}. This action cannot be undone.`}
-          trigger="Delete Application"
-          confirmLabel="Delete Application"
-          submitToastTitle="Deleting sponsor application"
-        />
+        <div className="flex flex-wrap gap-3">
+          {isBlocked ? (
+            <span className="inline-flex min-h-11 items-center rounded-full bg-[#FDECEC] px-4 text-sm font-semibold text-[#A12626]">
+              Email Blocked
+            </span>
+          ) : (
+            <ConfirmActionModal
+              action={blockApplicant}
+              title="Block this sponsor email?"
+              description={`${application.email} will no longer be able to submit controlled website forms.`}
+              trigger="Block Email"
+              confirmLabel="Block Email"
+              submitToastTitle="Blocking email"
+            />
+          )}
+          <ConfirmActionModal
+            action={deleteApplication}
+            title="Delete sponsor application?"
+            description={`This will permanently remove ${application.name}'s sponsor application and disable any sponsor portal access attached to ${application.email}. This action cannot be undone.`}
+            trigger="Delete Application"
+            confirmLabel="Delete Application"
+            submitToastTitle="Deleting sponsor application"
+          />
+        </div>
       </div>
       <Card className="p-6 md:p-8">
         <form action={updateSponsorApplicationAction} className="space-y-5">
